@@ -4,6 +4,7 @@ import json
 import frappe
 from frappe.model.document import Document
 from frappe.integrations.utils import make_post_request
+from frappe.utils import get_url
 
 
 class WhatsAppMessage(Document):
@@ -48,6 +49,28 @@ class WhatsAppMessage(Document):
                 frappe.throw(f"Failed to send message {str(e)}")
         elif self.type == "Outgoing" and self.message_type == "Template" and not self.message_id:
             self.send_template()
+            self.status = "Success"
+
+        """Find Profile Name."""
+        number = self.get("from") or self.get("to")
+
+        if not number or self.profile_name:
+            return
+
+        result = frappe.db.sql("""
+            SELECT profile_name
+            FROM `tabWhatsApp Message`
+            WHERE profile_name IS NOT NULL
+            AND name != %(current_docname)s
+            AND (%(number)s = `from` OR %(number)s = `to`)
+            ORDER BY creation DESC
+        """, {
+            "number": number,
+            "current_docname": self.name or ""
+        }, as_dict=True)
+
+        if result:
+            self.profile_name = result[0].profile_name
 
     def send_template(self):
         """Send template."""
@@ -73,13 +96,20 @@ class WhatsAppMessage(Document):
                 for field_name in field_names:
                     value = custom_values.get(field_name.strip())
                     parameters.append({"type": "text", "text": value})
-                    template_parameters.append(value)                    
+                    template_parameters.append(value)
+
+            elif self.custom_data == 1:
+                if self.fields:  # Directly check if self.fields exists and is truthy
+                    parameters = []
+                    for field in self.fields:
+                        parameters.append({"type": "text", "text": str(field.field_name)})
+                        template_parameters.append(field.field_name)
+                pass
 
             else:
                 ref_doc = frappe.get_doc(self.reference_doctype, self.reference_name)
                 for field_name in field_names:
                     value = ref_doc.get_formatted(field_name.strip())
-
                     parameters.append({"type": "text", "text": value})
                     template_parameters.append(value)
 
@@ -93,24 +123,53 @@ class WhatsAppMessage(Document):
                 }
             )
 
-        if template.header_type and template.sample:
-            field_names = template.sample.split(",")
-            header_parameters = []
-            template_header_parameters = []
-
-            ref_doc = frappe.get_doc(self.reference_doctype, self.reference_name)
-            for field_name in field_names:
-                value = ref_doc.get_formatted(field_name.strip())
+        # Handle header parameters
+        if template.header_type:
+            if template.header_type in ["IMAGE", "DOCUMENT", "VIDEO"]:
+                if not self.attach:
+                    frappe.throw(f"This template requires a {template.header_type.lower()}, but 'Attach' field is empty.")
                 
-                header_parameters.append({"type": "text", "text": value})
-                template_header_parameters.append(value)
+                file_url = get_url(self.attach)
+                header_type = template.header_type.lower()
+                
+                parameter = {
+                    "type": header_type,
+                    header_type: {
+                        "link": file_url
+                    }
+                }
+                
+                # Handle document filename
+                if header_type == "document":
+                    # Try to get filename from the attachment path
+                    import os
+                    filename = os.path.basename(self.attach)
+                    if filename:
+                        parameter["document"]["filename"] = filename
+                
+                data["template"]["components"].append({
+                    "type": "header",
+                    "parameters": [parameter]
+                })
+                
+            elif template.sample:  # For text-type headers
+                field_names = template.sample.split(",")
+                header_parameters = []
+                template_header_parameters = []
 
-            self.template_header_parameters = json.dumps(template_header_parameters)
+                ref_doc = frappe.get_doc(self.reference_doctype, self.reference_name)
+                for field_name in field_names:
+                    value = ref_doc.get_formatted(field_name.strip())
+                    
+                    header_parameters.append({"type": "text", "text": value})
+                    template_header_parameters.append(value)
 
-            data["template"]["components"].append({
-                "type": "header",
-                "parameters": header_parameters,
-            })
+                self.template_header_parameters = json.dumps(template_header_parameters)
+
+                data["template"]["components"].append({
+                    "type": "header",
+                    "parameters": header_parameters,
+                })
 
         self.notify(data)
 
