@@ -170,7 +170,7 @@ class WhatsAppTemplates(Document):
             make_request("DELETE", url, headers=self._headers)
         except Exception:
             res = frappe.flags.integration_request.json()["error"]
-            if res.get("error_user_title") == "Message Template Not Found":
+            if res.get("error_user_title") == "Message template not found":
                 frappe.msgprint(
                     "Deleted locally", res.get("error_user_title", "Error"), alert=True
                 )
