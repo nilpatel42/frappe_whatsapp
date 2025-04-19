@@ -182,7 +182,6 @@ function generate_whatsapp_preview(frm) {
             }
 		});
     } else {
-        // Dynamically set the option with the HTML preview if no template
         frm.set_df_property('message_preview', 'options', `<option value="preview">${previewHTML}</option>`);
         frm.refresh_field('message_preview');
     }
