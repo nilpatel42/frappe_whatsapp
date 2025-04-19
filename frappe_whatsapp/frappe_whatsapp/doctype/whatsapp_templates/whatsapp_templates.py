@@ -235,6 +235,11 @@ def fetch():
             doc.category = template["category"]
             doc.id = template["id"]
 
+            frappe.db.sql(f"""
+                DELETE FROM `tabWhatsApp Template Button`
+                WHERE parent = %(parent)s AND parentfield = 'buttons'
+            """, {"parent": doc.name})
+
             # update components
             for component in template["components"]:
 
@@ -256,6 +261,25 @@ def fetch():
                         doc.sample_values = ",".join(
                             component["example"]["body_text"][0]
                         )
+                elif component["type"] == "BUTTONS":
+                    # Process buttons and add them to the child table
+                    frappe.log_error(f"Processing buttons for template: {template['name']}", "Debug")
+                    for button_index, button in enumerate(component["buttons"], start=1):
+                        button_id = f"{doc.name}-button-{button_index}"
+
+                        # Insert the button row into the child table using SQL
+                        frappe.db.sql("""
+                            INSERT INTO `tabWhatsApp Template Button` 
+                            (name, parent, parentfield, parenttype, type, text, url, phone_number)
+                            VALUES (%(name)s, %(parent)s, 'buttons', 'WhatsApp Templates', %(type)s, %(text)s, %(url)s, %(phone_number)s)
+                        """, {
+                            "name": button_id,
+                            "parent": doc.name,
+                            "type": button["type"].replace("_", " ").upper(),
+                            "text": button["text"],
+                            "url": button.get("url", ""),
+                            "phone_number": button.get("phone_number", "")
+                        })
 
             # if document exists update else insert
             # used db_update and db_insert to ignore hooks

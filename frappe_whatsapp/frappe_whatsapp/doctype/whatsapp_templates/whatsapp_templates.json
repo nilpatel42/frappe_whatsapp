@@ -20,6 +20,8 @@
   "category",
   "language",
   "language_code",
+  "section_break_mwnh",
+  "buttons",
   "section_break_lupb",
   "header_type",
   "header",
@@ -32,7 +34,6 @@
    "fieldname": "template_name",
    "fieldtype": "Data",
    "label": "Template Label",
-   "read_only": 1,
    "reqd": 1,
    "unique": 1
   },
@@ -51,7 +52,6 @@
    "in_list_view": 1,
    "label": "Language",
    "options": "Language",
-   "read_only": 1,
    "reqd": 1
   },
   {
@@ -81,7 +81,6 @@
    "fieldtype": "Select",
    "label": "Category",
    "options": "\nTRANSACTIONAL\nMARKETING\nOTP\nUTILITY\nAUTHENTICATION",
-   "read_only": 1,
    "reqd": 1
   },
   {
@@ -127,8 +126,7 @@
   {
    "fieldname": "actual_name",
    "fieldtype": "Data",
-   "label": "Template Name",
-   "read_only": 1
+   "label": "Template Name"
   },
   {
    "fieldname": "for_doctype",
@@ -149,11 +147,21 @@
    "fieldname": "field_names",
    "fieldtype": "Small Text",
    "label": "Field names"
+  },
+  {
+   "fieldname": "section_break_mwnh",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "buttons",
+   "fieldtype": "Table",
+   "label": "Buttons",
+   "options": "WhatsApp Template Button"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-18 10:46:07.590702",
+ "modified": "2025-04-19 12:46:22.733999",
  "modified_by": "Administrator",
  "module": "Frappe Whatsapp",
  "name": "WhatsApp Templates",
