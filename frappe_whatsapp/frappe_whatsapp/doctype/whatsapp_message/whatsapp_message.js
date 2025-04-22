@@ -20,6 +20,20 @@ frappe.ui.form.on('WhatsApp Message', {
 				});
 			});
 		}
+
+        generate_whatsapp_preview(frm);
+
+        // Attach field change listeners to update preview dynamically
+        frm.fields_dict.message.df.change = () => generate_whatsapp_preview(frm);
+        frm.fields_dict.attach.df.change = () => generate_whatsapp_preview(frm);
+        frm.fields_dict.type.df.change = () => generate_whatsapp_preview(frm);
+        frm.fields_dict.template.df.change = () => generate_whatsapp_preview(frm);
+        frm.fields_dict.profile_name.df.change = () => generate_whatsapp_preview(frm);
+        frm.fields_dict.from.df.change = () => generate_whatsapp_preview(frm);
+        frm.fields_dict.to.df.change = () => generate_whatsapp_preview(frm);
+
+        // Refresh the form fields to apply the listeners
+        frm.refresh_fields();
 	},
 
 	use_template: function(frm) {
@@ -32,6 +46,29 @@ frappe.ui.form.on('WhatsApp Message', {
 
 	template: function(frm) {
         update_attach_field_mandatory(frm);
+
+        if (frm.doc.template) {
+            frappe.call({
+                method: "frappe.client.get",
+                args: {
+                    doctype: "WhatsApp Templates",
+                    name: frm.doc.template
+                },
+                callback: function(r) {
+                    if (r.message) {
+                        const data = r.message;
+                        const template_text = data.template || "";
+                        frm.set_value("message", template_text);
+        
+                        if (data.buttons) {
+                            frm.set_value("buttons", data.buttons);
+                        }
+                    }
+                }
+            });
+        }  
+
+
     }
 });
 
@@ -63,26 +100,6 @@ function update_attach_field_mandatory(frm) {
     }
 }
 
-
-frappe.ui.form.on('WhatsApp Message', {
-    refresh: function(frm) {
-        // Generate preview on form load
-        generate_whatsapp_preview(frm);
-
-        // Attach field change listeners to update preview dynamically
-        frm.fields_dict.message.df.change = () => generate_whatsapp_preview(frm);
-        frm.fields_dict.attach.df.change = () => generate_whatsapp_preview(frm);
-        frm.fields_dict.type.df.change = () => generate_whatsapp_preview(frm);
-        frm.fields_dict.template.df.change = () => generate_whatsapp_preview(frm);
-        frm.fields_dict.profile_name.df.change = () => generate_whatsapp_preview(frm);
-        frm.fields_dict.from.df.change = () => generate_whatsapp_preview(frm);
-        frm.fields_dict.to.df.change = () => generate_whatsapp_preview(frm);
-
-        // Refresh the form fields to apply the listeners
-        frm.refresh_fields();
-    }
-});
-
 function generate_whatsapp_preview(frm) {
     // Determine alignment based on the "type" field
     const isOutgoing = frm.doc.type === "Outgoing";
@@ -91,7 +108,14 @@ function generate_whatsapp_preview(frm) {
     const messageBorderRadius = isOutgoing 
         ? "border-top-right-radius: 2px; border-bottom-left-radius: 12px;" 
         : "border-top-left-radius: 2px; border-bottom-right-radius: 12px;";
-	let wrappedMessage = `<div style="margin-top: 4px; margin-bottom: 4px; font-size: 14px; line-height: 1.4; color: #303030; word-wrap: break-word; white-space: pre-wrap;">${frm.doc.message || ""}</div>`;
+    let formattedMessage = frm.doc.message
+        .replace(/\*/g, '**') // Optional: unify bold markers
+        .replace(/\n/g, '<br>') // Convert newlines to <br>
+        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') // Convert *bold* to <b>bold</b>
+        .replace(/_(.*?)_/g, '<i>$1</i>'); // Convert _italic_ to <i>italic</i>
+    
+    let wrappedMessage = `<div style="white-space: pre-wrap;">${formattedMessage}</div>`;
+      
 
     let previewHTML = `
         <div style="max-width: 500px; margin: 20px auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); background-color: white; overflow: hidden;">
@@ -133,7 +157,7 @@ function generate_whatsapp_preview(frm) {
                 if (r.message) {
                     const data = r.message;
                     const template_text = data.template || "";
-                    const buttons = data.buttons || [];
+                    const buttons = data.buttons || [];                   
 
                     // Wrap template
 					let wrappedTemplate = `<div style="white-space: pre-wrap;">${template_text.replace(/\n/g, '<br>')}</div>`;

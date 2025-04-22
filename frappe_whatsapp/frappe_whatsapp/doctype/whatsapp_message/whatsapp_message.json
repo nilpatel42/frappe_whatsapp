@@ -27,6 +27,7 @@
   "file_preview",
   "custom_data",
   "fields",
+  "buttons",
   "section_break_iyjf",
   "is_reply",
   "reply_to_message_id",
@@ -210,8 +211,7 @@
    "fieldname": "profile_name",
    "fieldtype": "Data",
    "label": "Profile Name",
-   "no_copy": 1,
-   "read_only": 1
+   "no_copy": 1
   },
   {
    "depends_on": "eval:doc.custom_data == 1",
@@ -241,11 +241,18 @@
    "fieldtype": "HTML",
    "label": "Message Preview",
    "read_only": 1
+  },
+  {
+   "fieldname": "buttons",
+   "fieldtype": "Table",
+   "label": "Buttons",
+   "options": "WhatsApp Template Button",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-19 19:13:40.539036",
+ "modified": "2025-04-21 13:08:12.445402",
  "modified_by": "Administrator",
  "module": "Frappe Whatsapp",
  "name": "WhatsApp Message",
