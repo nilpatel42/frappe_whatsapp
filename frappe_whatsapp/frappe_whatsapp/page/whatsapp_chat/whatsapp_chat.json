@@ -4,7 +4,7 @@
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2025-04-20 16:45:17.155043",
+ "modified": "2025-04-20 19:29:26.970179",
  "modified_by": "Administrator",
  "module": "Frappe Whatsapp",
  "name": "whatsapp-chat",
@@ -15,5 +15,6 @@
  "script": null,
  "standard": "Yes",
  "style": null,
- "system_page": 0
+ "system_page": 1,
+ "title": "Whatsapp Chat"
 }
