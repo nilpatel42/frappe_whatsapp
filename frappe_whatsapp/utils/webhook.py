@@ -36,6 +36,30 @@ def post():
 		"meta_data": json.dumps(data)
 	}).insert(ignore_permissions=True)
 
+	# Extract incoming phone number ID from the webhook payload
+	incoming_phone_id = None
+	
+	if data.get("entry") and isinstance(data["entry"], list):
+		incoming_phone_id = data["entry"][0]["changes"][0]["value"].get("metadata", {}).get("phone_number_id")
+	elif data.get("entry"):
+		incoming_phone_id = data["entry"]["changes"][0]["value"].get("metadata", {}).get("phone_number_id")
+	
+	# If no phone_id in metadata, try to get it from other locations
+	if not incoming_phone_id:
+		if data.get("entry") and isinstance(data["entry"], list) and data["entry"][0].get("changes", []):
+			value = data["entry"][0]["changes"][0].get("value", {})
+			if value.get("messages") and value["messages"]:
+				incoming_phone_id = value.get("phone_number_id")
+		
+	# Get this site's WhatsApp phone ID
+	site_phone_id = frappe.db.get_single_value(
+		"WhatsApp Settings", "phone_id"
+	)
+	
+	# If phone IDs don't match, log and return early with 200 OK
+	if incoming_phone_id and incoming_phone_id != site_phone_id:
+		return Response("OK", status=200)		
+	
 	messages = []
 	try:
 		messages = data["entry"][0]["changes"][0]["value"].get("messages", [])
@@ -173,7 +197,7 @@ def post():
 		except KeyError:
 			changes = data["entry"]["changes"][0]
 		update_status(changes)
-	return
+	return Response("OK", status=200)
 
 def update_status(data):
 	"""Update status hook."""
