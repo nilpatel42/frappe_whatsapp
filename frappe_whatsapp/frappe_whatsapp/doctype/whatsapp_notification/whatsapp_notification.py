@@ -200,17 +200,7 @@ class WhatsAppNotification(Document):
             template_content = self.get_template_content(template_name)
             
             # Get data from reference document for variable replacement
-            # Get data from reference document for variable replacement
             variables = self.get_variables_from_reference(reference_doctype, reference_document, doc, data)
-            frappe.log_error(
-                title="Debug Variables from get_variables_from_reference",
-                message=f"""
-                reference_doctype: {reference_doctype}
-                reference_document: {reference_document}
-                doc: {doc.as_dict() if doc else None}
-                data: {data}
-                """
-            )
 
             # Replace variables in the template
             message_text = self.replace_template_variables(template_content, variables)
@@ -351,10 +341,7 @@ class WhatsAppNotification(Document):
             debug_info[f"Replaced {placeholder}"] = value
         
         debug_info["Final message"] = message
-        
-        # This will show in Error Logs in Frappe
-        frappe.log_error(title="Template Debug", message=frappe.as_json(debug_info))
-        
+              
         return message
 
     def on_trash(self):
@@ -401,12 +388,9 @@ class WhatsAppNotification(Document):
 def call_trigger_notifications():
     """Trigger notifications."""
     try:
-        # Directly call the trigger_notifications function
         trigger_notifications()  
     except Exception as e:
-        # Log the error but do not show any popup or alert
         frappe.log_error(frappe.get_traceback(), "Error in call_trigger_notifications")
-        # Optionally, you could raise the exception to be handled elsewhere if needed
         raise e
 
 def trigger_notifications(method="daily"):
