@@ -211,7 +211,8 @@
    "fieldname": "profile_name",
    "fieldtype": "Data",
    "label": "Profile Name",
-   "no_copy": 1
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.custom_data == 1",
@@ -239,8 +240,7 @@
   {
    "fieldname": "message_preview",
    "fieldtype": "HTML",
-   "label": "Message Preview",
-   "read_only": 1
+   "label": "Message Preview"
   },
   {
    "fieldname": "buttons",
@@ -252,7 +252,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-21 13:08:12.445402",
+ "modified": "2025-04-22 11:33:18.283484",
  "modified_by": "Administrator",
  "module": "Frappe Whatsapp",
  "name": "WhatsApp Message",
