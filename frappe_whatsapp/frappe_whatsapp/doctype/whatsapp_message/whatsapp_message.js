@@ -72,34 +72,6 @@ frappe.ui.form.on('WhatsApp Message', {
     }
 });
 
-function update_attach_field_mandatory(frm) {
-    if (!frm.doc.template || frm.doc.template == 0) {
-        // No template selected
-        frm.fields_dict['attach'].df.reqd = 0;
-        frm.set_df_property('fields', 'hidden', 1); // hide 'fields' field
-        frm.refresh_fields(['attach', 'custom_data']);
-    } else {
-        // Fetch selected template
-        frappe.db.get_doc('WhatsApp Templates', frm.doc.template).then(template => {
-            // Set attach mandatory if header_type is IMAGE or DOCUMENT
-            if (template.header_type === 'IMAGE' || template.header_type === 'DOCUMENT') {
-                frm.fields_dict['attach'].df.reqd = 1;
-            } else {
-                frm.fields_dict['attach'].df.reqd = 0;
-            }
-
-            // Show or hide 'fields' based on presence of sample_value
-            if (template.sample_values) {
-                frm.set_df_property('custom_data', 'hidden', 0);
-            } else {
-                frm.set_df_property('custom_data', 'hidden', 1);
-            }
-
-            frm.refresh_fields(['attach', 'fields']);
-        });
-    }
-}
-
 function generate_whatsapp_preview(frm) {
     // Determine alignment based on the "type" field
     const isOutgoing = frm.doc.type === "Outgoing";
@@ -108,44 +80,43 @@ function generate_whatsapp_preview(frm) {
     const messageBorderRadius = isOutgoing 
         ? "border-top-right-radius: 2px; border-bottom-left-radius: 12px;" 
         : "border-top-left-radius: 2px; border-bottom-right-radius: 12px;";
-    let formattedMessage = frm.doc.message
-        .replace(/\*/g, '**') // Optional: unify bold markers
-        .replace(/\n/g, '<br>') // Convert newlines to <br>
-        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') // Convert *bold* to <b>bold</b>
-        .replace(/_(.*?)_/g, '<i>$1</i>'); // Convert _italic_ to <i>italic</i>
-    
-    let wrappedMessage = `<div style="white-space: pre-wrap;">${formattedMessage}</div>`;
-      
 
+    let messageContent = frm.doc.message || "";
+    let wrappedMessage = messageContent
+        .replace(/\*/g, "**")
+        .replace(/\n/g, "<br>")
+        .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
+        .replace(/_(.*?)_/g, "<i>$1</i>");
+    
+    // Create the preview HTML
     let previewHTML = `
-        <div style="max-width: 500px; margin: 20px auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); background-color: white; overflow: hidden;">
-          <div style="background-color: #128C7E; color: white; padding: 12px 18px; display: flex; align-items: center;">
+    <div style="max-width: 500px; margin: 20px auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); background-color: white; overflow: hidden;">
+        <div style="background-color: #128C7E; color: white; padding: 12px 18px; display: flex; align-items: center;">
             <div style="width: 45px; height: 45px; border-radius: 50%; background-color: #0c6b5f; margin-right: 12px; display: flex; align-items: center; justify-content: center;"></div>
             <div>
-              <div style="font-weight: bold; font-size: 16px; margin-bottom: 3px;">${frm.doc.profile_name || "Unknown"}</div>
-              <div style="font-size: 12px; opacity: 0.9;">+${frm.doc.from || frm.doc.to}</div>
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 3px;">${frm.doc.profile_name || "WhatsApp User"}</div>
+                <div style="font-size: 12px; opacity: 0.9;">+${frm.doc.from || frm.doc.to || "xx xxxxx xxxxx"}</div>
             </div>
-          </div>
-          <div style="padding: 15px 18px; background-color: #e9edef; min-height: 220px; display: flex; flex-direction: column;">
-            <div style="display: flex; justify-content: ${messageAlignment};">
-				<div  style="background-color: ${messageBackgroundColor}; border-radius: 12px; max-width: 85%; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); position: relative; ${messageBorderRadius}">
-					<div style="padding: 12px;">
-						<div id="header" style="text-align: left;"></div>
-						${frm.doc.attach ? `<img src="${frm.doc.attach}" alt="Message Image" style="max-width: 100%; border-radius: 8px; display: block;">` : ''}
-						${frm.doc.template ? '' : `<div style="margin-top: 8px; font-size: 14px; line-height: 1.4; color: #303030;">${wrappedMessage}</div>`}
-						<div id="template-content" style="margin-top: 0px; margin-bottom: 0px; font-size: 14px; line-height: 1.4; color: #303030;"></div>
-						<div style="display: flex; justify-content: space-between; font-size: 11px; color: #8d8d8d; margin-top: 7px; margin-bottom: -13px;">
-							<div id="footer" style="text-align: left;"></div>
-							<div style="text-align: right;">${frm.doc.creation ? frm.doc.creation.substring(11, 16) : "12:30"}</div>
-						</div>
-					</div>
-					<div id="buttons-content" style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;"></div>
-				</div>
-            </div>
-          </div>
         </div>
+        <div style="padding: 15px 18px; background-color: #e9edef; min-height: 220px; display: flex; flex-direction: column;">
+            ${frm.doc.message ? `<div style="display: flex; justify-content: ${messageAlignment};">
+                <div style="background-color: ${messageBackgroundColor}; border-radius: 12px; max-width: 85%; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); position: relative; ${messageBorderRadius}">
+                    <div style="padding: 12px;">
+                        <div id="header" style="text-align: left;"></div>
+                        ${frm.doc.attach ? `<img src="${frm.doc.attach}" alt="Message Image" style="max-width: 100%; border-radius: 8px; display: block;">` : ''}
+                        ${frm.doc.template ? '' : `<div style="margin-top: 8px; font-size: 14px; line-height: 1.4; color: #303030;">${wrappedMessage}</div>`}
+                        <div id="template-content" style="margin-top: 0px; margin-bottom: 0px; font-size: 14px; line-height: 1.4; color: #303030;"></div>
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #8d8d8d; margin-top: 7px;">
+                            <div id="footer" style="text-align: left;"></div>
+                            <div style="text-align: right;">${frm.doc.creation ? frm.doc.creation.substring(11, 16) : "12:30"}</div>
+                        </div>
+                    </div>
+                    <div id="buttons-content" style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;"></div>
+                </div>
+            </div>` : ''}
+        </div>
+    </div>
     `;
-
 	if (frm.doc.template) {
         frappe.call({
             method: "frappe.client.get",
@@ -210,3 +181,32 @@ function generate_whatsapp_preview(frm) {
         frm.refresh_field('message_preview');
     }
 }
+
+function update_attach_field_mandatory(frm) {
+    if (!frm.doc.template || frm.doc.template == 0) {
+        // No template selected
+        frm.fields_dict['attach'].df.reqd = 0;
+        frm.set_df_property('fields', 'hidden', 1); // hide 'fields' field
+        frm.refresh_fields(['attach', 'custom_data']);
+    } else {
+        // Fetch selected template
+        frappe.db.get_doc('WhatsApp Templates', frm.doc.template).then(template => {
+            // Set attach mandatory if header_type is IMAGE or DOCUMENT
+            if (template.header_type === 'IMAGE' || template.header_type === 'DOCUMENT') {
+                frm.fields_dict['attach'].df.reqd = 1;
+            } else {
+                frm.fields_dict['attach'].df.reqd = 0;
+            }
+
+            // Show or hide 'fields' based on presence of sample_value
+            if (template.sample_values) {
+                frm.set_df_property('custom_data', 'hidden', 0);
+            } else {
+                frm.set_df_property('custom_data', 'hidden', 1);
+            }
+
+            frm.refresh_fields(['attach', 'fields']);
+        });
+    }
+}
+
