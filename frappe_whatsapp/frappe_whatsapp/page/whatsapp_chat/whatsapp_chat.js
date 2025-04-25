@@ -185,7 +185,7 @@ class WhatsAppChatInterface {
 				color: #8696a0;
 				text-align: right;
 				margin-top: 2px;
-				margin-right: 10px;
+				margin-right: 0px;
 			}
 			.message-status {
 				font-size: 11px;
@@ -523,19 +523,33 @@ class WhatsAppChatInterface {
 			// Load messages logic here...
 		});
         
-        // Event for searching contacts
-        $('#contact-search').on('input', function() {
-            const searchText = $(this).val().toLowerCase();
-            $('.contact-item').each(function() {
-                const contactName = $(this).find('.contact-name').text().toLowerCase();
-                const contactNumber = $(this).find('.contact-number').text().toLowerCase();
-                if (contactName.includes(searchText) || contactNumber.includes(searchText)) {
-                    $(this).show();
-                } else {
-                    $(this).hide();
-                }
-            });
-        });
+		// Event for searching contacts
+		$('#contact-search').on('input', function() {
+			const searchText = $(this).val().toLowerCase();
+			const searchTextNoSpaces = searchText.replace(/\s+/g, '');
+			
+			$('.contact-item').each(function() {
+			const contactName = $(this).find('.contact-name').text().toLowerCase();
+			const contactNumber = $(this).find('.contact-number').text().toLowerCase();
+			const contactNumberNoSpaces = contactNumber.replace(/\s+/g, '');
+			
+			// Check all possible combinations:
+			// 1. Normal search in name
+			// 2. Normal search in original number with spaces
+			// 3. No-space search in no-space number
+			// 4. No-space search in original number with spaces
+			// 5. Search with spaces in no-space number
+			if (contactName.includes(searchText) || 
+				contactNumber.includes(searchText) || 
+				contactNumberNoSpaces.includes(searchTextNoSpaces) ||
+				contactNumber.includes(searchTextNoSpaces) ||
+				contactNumberNoSpaces.includes(searchText)) {
+				$(this).show();
+			} else {
+				$(this).hide();
+			}
+			});
+		});
         
         // Event for sending messages
         $('.btn-send').on('click', function() {
@@ -687,7 +701,7 @@ class WhatsAppChatInterface {
 												} else {
 													// No profile name found, use the number as name
 													resolveProfile({
-														name: formatPhoneNumber(phoneNumber),
+														name: 'Unknown',
 														direction: 'unknown'
 													});
 												}
@@ -821,6 +835,8 @@ class WhatsAppChatInterface {
 					return `${day}/${month}/${year}`;
 				}
 			};
+
+
 			
 			// Get a preview of the last message
 			const getMessagePreview = (msg) => {
@@ -836,39 +852,50 @@ class WhatsAppChatInterface {
 					return '🎬 Video';
 				} else {
 					// Truncate text messages if too long
-					const maxLength = 35;
+					const maxLength = 40;
 					let preview = msg.message || '';
-					preview = preview.replace(/\n/g, ' ');
+					preview = preview
+						.replace(/_(.*?)_/g, '<i>$1</i>') // Convert _italic_ to <i>italic</i>
+						.replace(/\s*\n\s*/g, ' ')
+						// .replace(/\*\*(.*?)\*\*/g, (_, p1) => `<b>${p1}</b>`)
 					return preview.length > maxLength ? preview.substring(0, maxLength) + '...' : preview;
 				}
 			};
 					
-			// Generate last message direction icon
-			const directionIcon = contact.lastMessage?.isOutgoing 
-				? '<span class="fa-stack fa-sm text-primary">' +
-					'<i class="fa fa-check fa-stack-1x" style="margin-left: -5px; color: #53BDEB;"></i>' +
-					'<i class="fa fa-check fa-stack-1x" style="color: #53BDEB; margin-left: -1px;"></i>' +
-				'</span>' 
-				: '';
-			
+
+			const formatPhoneNumber = (number) => {
+				// Ensure the number is a string
+				number = number.toString();
+				const countryCode = number.slice(0, 2);
+				const firstPart = number.slice(2, 7);
+				const secondPart = number.slice(7, 12);
+				return `+${countryCode} ${firstPart} ${secondPart}`;
+			};
+
 			const contactItem = $(`
 				<div class="contact-item" data-number="${contact.number}">
-					<div class="contact-avatar">
-						${contact.name && contact.name.charAt(0) !== '+' 
-							? contact.name.charAt(0).toUpperCase() 
-							: 'U'}
+				<div class="contact-avatar">
+					${contact.name && contact.name.charAt(0) !== '+' 
+					? contact.name.charAt(0).toUpperCase() 
+					: 'U'}
+				</div>
+				<div class="contact-info">
+					<div class="contact-header">
+					${contact.name === "Unknown" 
+						? `<div class="contact-number">${formatPhoneNumber(contact.number)}</div>`
+						: `<div class="contact-name">${contact.name}</div>`
+					}
+					<div class="contact-time">
+						${contact.lastMessage ? formatLastMessageTime(contact.lastMessage.creation) : ''}
 					</div>
-					<div class="contact-info">
-						<div class="contact-header">
-							<div class="contact-name">${contact.name}</div>
-							<div class="contact-time">${contact.lastMessage ? formatLastMessageTime(contact.lastMessage.creation) : ''}</div>
-						</div>
-						<div class="contact-message">
-							${directionIcon}${getMessagePreview(contact.lastMessage)}
-						</div>
+					</div>
+					<div class="contact-message">
+					${getMessagePreview(contact.lastMessage)}
 					</div>
 				</div>
+				</div>
 			`);
+				  
 			
 			contactItem.on('click', function() {
 				$('.contact-item').removeClass('active');
@@ -957,22 +984,33 @@ class WhatsAppChatInterface {
 			`).appendTo('head');
 		}
 		
-		// Add search functionality
-		$('#contact-search').off('input').on('input', function() {
-			const searchTerm = $(this).val().toLowerCase();
+		// Event for searching contacts
+		$('#contact-search').on('input', function() { 
+			const searchText = $(this).val().toLowerCase();
+			const searchTextNoSpaces = searchText.replace(/\s+/g, '');
 			
 			$('.contact-item').each(function() {
-				const name = $(this).find('.contact-name').text().toLowerCase();
-				const number = $(this).find('.contact-number').text().toLowerCase();
-				
-				if (name.includes(searchTerm) || number.includes(searchTerm)) {
-					$(this).show();
-				} else {
-					$(this).hide();
-				}
+			// Get the contact name and number text
+			const contactName = $(this).find('.contact-name').text().toLowerCase();
+			const contactNumber = $(this).find('.contact-number').text().toLowerCase();
+			const contactNumberNoSpaces = contactNumber.replace(/\s+/g, '');
+			
+			// Check if search text matches any part of the contact
+			const nameMatch = contactName.includes(searchText);
+			const numberMatch = contactNumber.includes(searchText);
+			const numberNoSpacesMatch = contactNumberNoSpaces.includes(searchTextNoSpaces);
+			const mixedMatch1 = contactNumber.includes(searchTextNoSpaces);
+			const mixedMatch2 = contactNumberNoSpaces.includes(searchText);
+			
+			// If any of these conditions are true, show the contact
+			if (nameMatch || numberMatch || numberNoSpacesMatch || mixedMatch1 || mixedMatch2) {
+				$(this).show();
+			} else {
+				$(this).hide();
+			}
 			});
 		});
-		
+
 		// Select the first contact by default
 		if (contacts.length > 0) {
 			$('.contact-item').first().trigger('click');
@@ -1165,6 +1203,12 @@ class WhatsAppChatInterface {
 							<i class="fa fa-check fa-stack-1x" style="color: #53BDEB; margin-top: -2px;"></i>
 						</span>`;
 				}
+				if (status === 'failed') {
+					return `
+						<span class="fa-stack fa-sm text-primary">
+							<i class="fa fa-exclamation-triangle fa-stack-1x" style="color: #db2315; margin-bottom: 0px;"></i>
+						</span>`;
+				}
 				return '';
 			};
 			
@@ -1269,70 +1313,239 @@ class WhatsAppChatInterface {
     }
     
     show_template_dialog() {
-        const me = this;
-        
-        frappe.call({
-            method: 'frappe.client.get_list',
-            args: {
-                doctype: 'WhatsApp Templates',
-                fields: ['name', 'template_name'],
-                limit: 1000
-            },
-            callback: function(r) {
-                if (r.message) {
-                    let d = new frappe.ui.Dialog({
-                        title: 'Send Template Message',
-                        fields: [
-                            {
-                                label: 'Template',
-                                fieldname: 'template',
-                                fieldtype: 'Link',
-                                options: 'WhatsApp Templates',
-                                reqd: 1
-                            },
-                            {
-                                label: 'Parameters',
-                                fieldname: 'parameters',
-                                fieldtype: 'Small Text',
-                                description: 'Add parameters in JSON format: {"1":"value1","2":"value2"}'
-                            }
-                        ],
-                        primary_action_label: 'Send',
-                        primary_action(values) {
-                            me.send_template_message(values);
-                            d.hide();
-                        }
-                    });
-                    d.show();
-                }
-            }
-        });
-    }
-    
-    send_template_message(values) {
-        if (!this.current_contact) return;
-        
-        const me = this;
-        frappe.call({
-            method: 'frappe.client.insert',
-            args: {
-                doc: {
-                    doctype: 'WhatsApp Message',
-                    type: 'Outgoing',
-                    to: this.current_contact,
-                    use_template: 1,
-                    template: values.template,
-                    template_parameters: values.parameters,
-                    content_type: 'text',
-                    message_type: 'Template',
-                    status: 'queued'
-                }
-            },
-            callback: function(r) {
-                if (r.message) {
-                    me.load_messages(me.current_contact);
-                }
-            }
-        });
-    }
+		const me = this;
+		
+		// Create a dialog with initial template selection only
+		let dialog = new frappe.ui.Dialog({
+		  title: 'Send Template Message',
+		  fields: [
+			{
+			  label: 'Template',
+			  fieldname: 'template',
+			  fieldtype: 'Link',
+			  options: 'WhatsApp Templates',
+			  reqd: 1,
+			  onchange: function() {
+				// When template changes, fetch its details
+				if (this.value) {
+				  frappe.call({
+					method: 'frappe.client.get_value',
+					args: {
+					  doctype: 'WhatsApp Templates',
+					  filters: { name: this.value },
+					  fieldname: ['sample_values', 'template_name']
+					},
+					callback: function(r) {
+					  if (r.message && r.message.sample_values) {
+						// Parse sample values to determine how many variables are needed
+						let sampleValues;
+						try {
+						  sampleValues = JSON.parse(r.message.sample_values);
+						} catch (e) {
+						  sampleValues = {};
+						}
+						
+						const variables = Object.keys(sampleValues);
+						
+						// Show doctype and document selection fields
+						dialog.set_df_property('reference_doctype_section', 'hidden', 0);
+						dialog.set_df_property('reference_doctype', 'hidden', 0);
+						dialog.set_df_property('reference_name', 'hidden', 0);
+						dialog.set_df_property('custom_data', 'hidden', 0);
+						
+						// Setup the field mapping child table
+						let field_mapping_fields = [];
+						variables.forEach((variable, index) => {
+						  field_mapping_fields.push({
+							variable: variable,
+							sample_value: sampleValues[variable],
+							docfield: ""
+						  });
+						});
+						
+						dialog.set_value('field_mappings', field_mapping_fields);
+					  } else {
+						// Hide document selection fields if no sample values
+						dialog.set_df_property('reference_doctype_section', 'hidden', 1);
+						dialog.set_df_property('reference_doctype', 'hidden', 1);
+						dialog.set_df_property('reference_name', 'hidden', 1);
+						dialog.set_df_property('custom_data', 'hidden', 1);
+						dialog.set_df_property('field_mapping_section', 'hidden', 1);
+					  }
+					}
+				  });
+				}
+			  }
+			},
+			{
+			  fieldtype: 'Section Break',
+			  fieldname: 'reference_doctype_section',
+			  label: 'Document Reference',
+			  hidden: 1
+			},
+			{
+			  label: 'Select Document Type',
+			  fieldname: 'reference_doctype',
+			  fieldtype: 'Link',
+			  options: 'DocType',
+			  hidden: 1,
+			  onchange: function() {
+				if (this.value) {
+				  // Update reference_name to be a link field of the selected doctype
+				  dialog.fields_dict.reference_name.df.options = this.value;
+				  dialog.fields_dict.reference_name.refresh();
+				  
+				  // Get fields of the selected doctype for mapping
+				  frappe.model.with_doctype(this.value, function() {
+					let fields = frappe.meta.get_docfields(dialog.get_value('reference_doctype'), null, {
+					  fieldtype: ['not in', ['Section Break', 'Column Break', 'Tab Break', 'HTML', 'Table', 'Button', 'Image']]
+					});
+					
+					// Update the docfield options in the field mappings table
+					let docfields = fields.map(f => ({ value: f.fieldname, label: `${f.label || f.fieldname} (${f.fieldtype})` }));
+					
+					dialog.fields_dict.field_mappings.grid.update_docfield_property(
+					  'docfield', 'options', docfields
+					);
+					
+					// Refresh the grid to show updated options
+					dialog.fields_dict.field_mappings.grid.refresh();
+				  });
+				}
+			  }
+			},
+			{
+			  label: 'Select Document',
+			  fieldname: 'reference_name',
+			  fieldtype: 'Link',
+			  options: 'reference_doctype',
+			  hidden: 1
+			},
+			{
+			  fieldtype: 'Check',
+			  fieldname: 'custom_data',
+			  label: 'Custom Data',
+			  hidden: 1,
+			  onchange: function () {
+				// Use the checkbox's current value (true/false)
+				if (this.get_value()) {
+				  dialog.set_df_property('field_mapping_section', 'hidden', 0); // show
+				} else {
+				  dialog.set_df_property('field_mapping_section', 'hidden', 1); // hide
+				}
+			  }
+			},
+			{
+			  fieldtype: 'Section Break',
+			  fieldname: 'field_mapping_section',
+			  label: 'Map Document Fields to Template Variables',
+			  hidden: 1
+			},
+			{
+			  fieldname: 'field_mappings',
+			  fieldtype: 'Table',
+			  hidden: 0,
+			  fields: [
+				{
+				  fieldname: 'docfield',
+				  fieldtype: 'Autocomplete',
+				  label: 'Document Field',
+				  in_list_view: 1,
+				  options: []
+				}
+			  ]
+			}
+		  ],
+		  primary_action_label: 'Send',
+		  primary_action(values) {
+			if (!me.current_contact) return;
+			
+			// Prepare the message doc
+			let msg_doc = {
+			  doctype: 'WhatsApp Message',
+			  type: 'Outgoing',
+			  to: me.current_contact,
+			  use_template: 1,
+			  custom_data: values.custom_data ? 1 : 0,
+			  template: values.template,
+			  content_type: 'text',
+			  message_type: 'Template',
+			  status: 'queued',
+			  reference_doctype: values.reference_doctype || null,
+			  reference_name: values.reference_name || null
+			};
+			
+			// Handle parameter building
+			if (values.custom_data && values.reference_doctype && values.reference_name && values.field_mappings) {
+			  frappe.call({
+				method: 'frappe.client.get',
+				args: {
+				  doctype: values.reference_doctype,
+				  name: values.reference_name
+				},
+				callback: function(r) {
+				  if (r.message) {
+					const doc = r.message;
+					let parameters = {};
+					let fields = [];
+					
+					// Construct parameters from field mappings and prepare fields table data
+					(values.field_mappings || []).forEach(mapping => {
+					  if (mapping.docfield && mapping.variable) {
+						parameters[mapping.variable] = doc[mapping.docfield] || '';
+						
+						// Add to fields table
+						fields.push({
+						  variable: mapping.variable,
+						  field_name: mapping.docfield,
+						  value: doc[mapping.docfield] || ''
+						});
+					  }
+					});
+					
+					msg_doc.template_parameters = JSON.stringify(parameters);
+					msg_doc.fields = fields;  // Add fields array for child table
+					
+					// Insert the message doc
+					frappe.call({
+					  method: 'frappe.client.insert',
+					  args: { doc: msg_doc },
+					  callback: function(r) {
+						if (r.message) {
+						  me.load_messages(me.current_contact);
+						  frappe.show_alert({
+							message: __('Template message queued for sending'),
+							indicator: 'green'
+						  });
+						}
+					  }
+					});
+				  }
+				}
+			  });
+			} else {
+			  // Simple template with no custom data
+			  msg_doc.template_parameters = '{}';
+			  
+			  frappe.call({
+				method: 'frappe.client.insert',
+				args: { doc: msg_doc },
+				callback: function(r) {
+				  if (r.message) {
+					me.load_messages(me.current_contact);
+					frappe.show_alert({
+					  message: __('Template message queued for sending'),
+					  indicator: 'green'
+					});
+				  }
+				}
+			  });
+			}
+			
+			dialog.hide();
+		  }
+		});
+		
+		dialog.show();
+	  }
 }
