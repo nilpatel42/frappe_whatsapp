@@ -12,10 +12,47 @@ frappe.pages['whatsapp-chat'].on_page_load = function(wrapper) {
 class WhatsAppChatInterface {
     constructor(page) {
         this.page = page;
+        this.setup_fullscreen_mode();
         this.setup_page_layout();
         this.load_contacts();
     }
+    
+    // Add this new method for fullscreen functionality
+    setup_fullscreen_mode() {
+        // Hide Frappe header and navigation
+		$('.page-head').hide();
+		$('.page-body').css({
+			'width': '100%'
+		});        
+
         
+        // Add custom CSS for full height
+        $('<style>')
+            .prop('type', 'text/css')
+            .html(`
+                .page-content {
+                    min-height: 93vh !important;
+                    padding: 0 !important;
+                }
+                
+                .chat-container {
+                    height: 93vh !important;
+                    background-color: #111b21;
+                }
+
+				@media (max-width: 768px) {
+					.page-content {
+						min-height: 88vh !important;
+					}
+					.chat-container {
+						height: 88vh !important;
+                	}
+				}
+            `)
+            .appendTo('head');
+    }
+    
+            
 	add_styles() {
 		// Add CSS for the chat interface
 		$('<style>').text(`
@@ -81,10 +118,12 @@ class WhatsAppChatInterface {
 			.chat-search {
 				padding: 10px;
 				border-bottom: 1px solid #38424a;
+				height: 65px;
+				padding-top: 12px;
 			}
 			.chat-search input {
 				background-color: #202c33;
-				border-radius: 18px;
+				border-radius: 6px;
 				border: none;
 				padding: 8px 12px;
 				color: #ffffff;
@@ -108,7 +147,7 @@ class WhatsAppChatInterface {
 				background-color: #202c33;
 			}
 			.chat-content {
-				width: 70%;
+				width: 80%;
 				display: flex;
 				flex-direction: column;
 			}
@@ -120,6 +159,128 @@ class WhatsAppChatInterface {
 				height: 65px;
 				display: flex;
 				align-items: center;
+				justify-content: space-between;
+			}
+			.chat-header-left {
+				display: flex;
+				align-items: center;
+			}
+			.chat-header-right {
+				display: flex;
+				align-items: center;
+			}
+			.refresh-btn {
+				background-color: transparent;
+				border: none;
+				color: #ffffff;
+				font-size: 18px;
+				cursor: pointer;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 36px;
+				height: 36px;
+				margin-left: 10px;
+			}
+			.refresh-btn:hover {
+				color: rgb(94, 173, 156);
+			}
+			.chat-actions {
+				display: flex;
+				align-items: center;
+			}
+			
+			.attach-file-btn {
+				position: absolute;
+				background: transparent;
+				border: none;
+				color: white;
+				cursor: pointer;
+				font-size: 16px;
+				padding: 8px;
+				margin-right: 1255px;
+				right: 50px;
+				top: 50%;
+				transform: translateY(-50%);
+				width: 36px;
+				height: 36px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				cursor: pointer;
+			}
+			
+			.attach-file-btn:hover {
+				color: #25d366;
+			}
+			
+			.file-preview-container {
+				padding: 10px 15px;
+				background-color: #111b21;
+				border-top: 1px solid #ddd;
+			}
+			
+			.file-preview {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+			}
+			
+			.preview-content {
+				display: flex;
+				align-items: center;
+				max-width: 90%;
+			}
+			
+			.image-preview {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+			}
+			
+			.image-preview img {
+				max-height: 100px;
+				max-width: 200px;
+				object-fit: contain;
+				border-radius: 4px;
+			}
+			
+			.doc-preview {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+			}
+			
+			.file-name {
+				margin-top: 5px;
+				font-size: 12px;
+				color: white;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				max-width: 150px;
+			}
+			
+			.remove-file-btn {
+				background: transparent;
+				border: none;
+				color: #888;
+				cursor: pointer;
+				padding: 5px;
+			}
+			
+			.remove-file-btn:hover {
+				color: #e74c3c;
+			}
+			
+			.file-sending {
+				font-size: 12px;
+				color: #888;
+				margin-top: 5px;
+			}
+			
+			.error-message {
+				color: #e74c3c;
 			}
 			.chat-messages {
 				flex: 1;
@@ -141,7 +302,7 @@ class WhatsAppChatInterface {
 			.message.incoming {
 				background-color: #202c33;
 				align-self: flex-start;
-				margin-right: auto;
+				margin-right: auto !important;
 				padding: 8px 10px 7px;
 				border-top-left-radius: 0;
 			}
@@ -161,14 +322,15 @@ class WhatsAppChatInterface {
 			}
 			#message-input {
 				resize: none;
-				border-radius: 10px;
+				border-radius: 6px;
 				padding: 9px 12px;
 				height: 45px;
 				border: 1px solid #38424a;
 				color: #ffffff;
 				background-color: #202c33;
-				width: 96%;
+				width: 96.5%;
 				padding-right: 40px;
+				padding-left: 40px;
 			}
 			.btn-primary {
 				background-color: #00a884;
@@ -264,6 +426,13 @@ class WhatsAppChatInterface {
 					margin-top: 0px;
 				}
 			}
+            
+            /* Fullscreen mobile adjustments */
+            @media (max-width: 767px) {
+                .chat-container.fullscreen {
+                    height: 100vh !important;
+                }
+            }
 		`).appendTo('head');
 	}
 	
@@ -279,22 +448,43 @@ class WhatsAppChatInterface {
 				</div>
 				<div class="chat-content">
 					<div class="chat-header">
-						<button class="back-to-contacts-btn" style="display: none;">
-							<i class="fa fa-arrow-left" aria-hidden="true"></i>
-						</button>
-						<div class="current-contact-avatar contact-avatar"></div>
-						<div class="current-contact"></div>
+						<div class="chat-header-left">
+							<button class="back-to-contacts-btn" style="display: none;">
+								<i class="fa fa-arrow-left" aria-hidden="true"></i>
+							</button>
+							<div class="current-contact-avatar contact-avatar"></div>
+							<div class="current-contact"></div>
+						</div>
+						<div class="chat-header-right">
+							<button id="refresh-button" class="refresh-btn" title="Refresh chats and contacts">
+								<i class="fa fa-refresh" aria-hidden="true"></i>
+							</button>                            
+						</div>
 					</div>
 					<div class="chat-messages"></div>
+					<div class="file-preview-container" style="display: none;">
+						<div class="file-preview">
+							<div class="preview-content"></div>
+							<button class="remove-file-btn">
+								<i class="fa fa-times" aria-hidden="true"></i>
+							</button>
+						</div>
+					</div>
 					<div class="chat-input-container">
 						<div class="chat-send-wrapper">
 							<textarea id="message-input" placeholder="Type a message"></textarea>
-							<button id="send-button" class="send-icon-btn btn-send" style="display: none;">
-								<i class="fa fa-paper-plane" aria-hidden="true"></i>
-							</button>
-							<button class="template-icon-btn btn-use-template">
-								<i class="fa fa-book" aria-hidden="true"></i>
-							</button>                        
+							<div class="chat-actions">
+								<button class="attach-file-btn" title="Attach file">
+									<i class="fa fa-plus" aria-hidden="true"></i>
+								</button>
+								<input type="file" id="file-input" style="display: none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx">
+								<button id="send-button" class="send-icon-btn btn-send" style="display: none;">
+									<i class="fa fa-paper-plane" aria-hidden="true"></i>
+								</button>
+								<button class="template-icon-btn btn-use-template">
+									<i class="fa fa-book" aria-hidden="true"></i>
+								</button>
+							</div>                        
 						</div>
 					</div>
 				</div>
@@ -304,7 +494,54 @@ class WhatsAppChatInterface {
 		this.add_styles();
 		this.setup_events();
 		this.setup_mobile_toggler();
+		this.setup_refresh_button();
+		this.setup_file_upload();
+		
+		// Add event for the fullscreen toggle button in the header
+		$('#fullscreen-toggle').on('click', () => {
+			this.toggle_fullscreen();
+			
+			// Change icon based on fullscreen state
+			if ($('.navbar').is(':visible')) {
+				$('#fullscreen-toggle i').removeClass('fa-compress').addClass('fa-expand');
+			} else {
+				$('#fullscreen-toggle i').removeClass('fa-expand').addClass('fa-compress');
+			}
+		});
 	}
+
+	showContactLoadingSpinner() {
+		$('.current-contact').html('<div class="text-center"><i class="fa fa-spinner fa-spin"></i> Loading...</div>');
+	}
+	  
+	
+	setup_refresh_button() {
+		const self = this;
+		
+		// Add click event for refresh button
+		$('#refresh-button').on('click', function() {
+			self.refresh_all();
+		});
+	}
+	
+	refresh_all() {
+		// Clear all messages in the current chat
+		$('.chat-messages').empty();				
+
+		// Hide the send button if it's visible
+		$('#send-button').hide();
+		this.showContactLoadingSpinner();		
+		
+		// Reload the contact list
+		this.load_contacts();
+
+		// setTimeout(() => {
+		// 	$('.contact-item').first().trigger('click');
+		// }, 90);
+		
+	}
+
+	
 	
 	setup_mobile_toggler() {
 		// Check if we're on mobile
@@ -346,163 +583,14 @@ class WhatsAppChatInterface {
 			}
 		});
 	}
-	
-
-	    // add_styles() {
-    //     // Add CSS for the chat interface
-    //     $('<style>').text(`
-	// 		.chat-container {
-	// 			display: flex;
-	// 			height: calc(100vh - 170px);
-	// 			background-color: #dadbd3; /* WhatsApp light gray background */
-	// 		}
-	// 		.chat-sidebar {
-	// 			width: 30%;
-	// 			border-right: 1px solid #d1d7db;
-	// 			display: flex;
-	// 			flex-direction: column;
-	// 			background-color: #ffffff;
-	// 		}
-	// 		.chat-search {
-	// 			padding: 10px;
-	// 			border-bottom: 1px solid #e0e0e0;
-	// 		}
-	// 		.chat-search input {
-	// 			background-color: #f0f2f5;
-	// 			border-radius: 18px;
-	// 			border: none;
-	// 			padding: 8px 12px;
-	// 			color: #333333; /* Darker text for better readability */
-	// 			width: 100%;
-	// 		}
-	// 		.contact-list {
-	// 			flex: 1;
-	// 			overflow-y: auto;
-	// 		}
-	// 		.contact-item {
-	// 			padding: 12px 15px;
-	// 			border-bottom: 1px solid #f0f0f0;
-	// 			cursor: pointer;
-	// 			color: #111b21; /* WhatsApp dark text */
-	// 			font-weight: 400;
-	// 		}
-	// 		.contact-item:hover {
-	// 			background-color: #f5f6f6;
-	// 		}
-	// 		.contact-item.active {
-	// 			background-color: #f0f2f5;
-	// 		}
-	// 		.chat-content {
-	// 			width: 70%;
-	// 			display: flex;
-	// 			flex-direction: column;
-	// 		}
-	// 		.chat-header {
-	// 			padding: 10px 15px;
-	// 			background-color: #f0f2f5;
-	// 			border-bottom: 1px solid #d1d7db;
-	// 			color: #111b21; /* WhatsApp dark text */
-	// 		}
-	// 		.chat-messages {
-	// 			flex: 1;
-	// 			overflow-y: auto;
-	// 			padding: 15px;
-	// 			background-color: #efeae2; /* WhatsApp chat background */
-	// 			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23aaaaaa' fill-opacity='0.1'/%3E%3C/svg%3E");
-	// 		}
-	// 		.message {
-	// 			max-width: 30%;
-	// 			padding: 8px 12px;
-	// 			margin-bottom: 10px;
-	// 			border-radius: 7.5px;
-	// 			position: relative;
-	// 			word-wrap: break-word;
-	// 			color: #111b21; /* WhatsApp dark text */
-	// 			box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
-	// 			line-height: 1.4;
-	// 		}
-	// 		.message.incoming {
-	// 			background-color: #ffffff;
-	// 			align-self: flex-start;
-	// 			margin-right: auto;
-	// 			border-top-left-radius: 0;
-	// 		}
-	// 		.message.outgoing {
-	// 			background-color: #d9fdd3; /* WhatsApp green message bubble */
-	// 			align-self: flex-end;
-	// 			margin-left: auto;
-	// 			border-top-right-radius: 0;
-	// 		}
-	// 		.chat-input-container {
-	// 			padding: 10px;
-	// 			background-color: #f0f2f5;
-	// 			display: flex;
-	// 			flex-direction: column;
-	// 			border-top: 1px solid #d1d7db;
-	// 		}
-	// 		#message-input {
-	// 			resize: none;
-	// 			border-radius: 20px;
-	// 			padding: 9px 12px;
-	// 			margin-bottom: 10px;
-	// 			height: 45px;
-	// 			border: 1px solid #d1d7db;
-	// 			color: #111b21; /* WhatsApp dark text */
-	// 			background-color: #f0f2f5;
-	// 		}
-	// 		.chat-actions {
-	// 			display: flex;
-	// 			justify-content: space-between;
-	// 		}
-	// 		.btn-primary {
-	// 			background-color: #00a884; /* WhatsApp green */
-	// 			border-color: #00a884;
-	// 			color: white;
-	// 		}
-	// 		.btn-default {
-	// 			background-color: #f0f2f5;
-	// 			border-color: #d1d7db;
-	// 			color: #54656f;
-	// 		}
-	// 		.message-time {
-	// 			font-size: 11px;
-	// 			color: #667781; /* WhatsApp time text color */
-	// 			text-align: right;
-	// 			margin-top: 2px;
-	// 		}
-	// 		.message-status {
-	// 			font-size: 11px;
-	// 			color: #667781; /* WhatsApp status text color */
-	// 			margin-left: 5px;
-	// 		}
-
-	// 		@media (max-width: 767px) {
-	// 			.chat-container {
-	// 				flex-direction: column;
-	// 			}
-				
-	// 			.chat-sidebar {
-	// 				width: 100%;
-	// 				height: 30%;
-	// 			}
-				
-	// 			.chat-content {
-	// 				width: 100%;
-	// 				height: 70%;
-	// 			}
-
-	// 			.message {
-	// 				max-width: 75%;
-	// 			}
-	// 		}
-    //     `).appendTo('head');
-    // }
-    
+	    
     setup_events() {
-
 		const messageInput = document.getElementById('message-input');
 		const sendButton = document.getElementById('send-button');
-
+	
+		// Initially hide the message input container until a chat is selected
+		$('.chat-input-container').hide();
+	
 		messageInput.addEventListener('input', () => {
 			if (messageInput.value.trim() !== "") {
 				sendButton.style.display = 'inline-block'; // or 'flex' if needed
@@ -511,18 +599,20 @@ class WhatsAppChatInterface {
 			}
 		});
 		
-        const me = this;
+		const me = this;
 		$(document).on('click', '.contact-item', function() {
 			const contactName = $(this).text();
-			$('.current-contact').text(contactName);
+			me.showContactLoadingSpinner();
 			$('.contact-item').removeClass('active');
 			$(this).addClass('active');
 			
-			// Clear and load messages for this contact
-			$('.chat-messages').empty();
-			// Load messages logic here...
+			// Get phone number from data attribute
+			const phoneNumber = $(this).data('number');
+			me.load_messages(phoneNumber);
+			$('.chat-input-container').show();
+			$('.contact-avatar').show();
 		});
-        
+		
 		// Event for searching contacts
 		$('#contact-search').on('input', function() {
 			const searchText = $(this).val().toLowerCase();
@@ -550,28 +640,34 @@ class WhatsAppChatInterface {
 			}
 			});
 		});
-        
-        // Event for sending messages
-        $('.btn-send').on('click', function() {
-            me.send_message();
-        });
-        
-        // Event for using templates
-        $('.btn-use-template').on('click', function() {
-            me.show_template_dialog();
-        });
-        
-        // Enter key to send message
-        $('#message-input').on('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                me.send_message();
-            }
-        });
-    }
+		
+		// Event for sending messages
+		$('.btn-send').on('click', function() {
+			me.send_message();
+		});
+		
+		// Event for using templates
+		$('.btn-use-template').on('click', function() {
+			me.show_template_dialog();
+		});
+		
+		// Enter key to send message
+		$('#message-input').on('keydown', function(e) {
+			if (e.key === 'Enter' && !e.shiftKey) {
+				e.preventDefault();
+				me.send_message();
+			}
+		});
+	}
     
 	load_contacts() {
 		const me = this;
+		
+		// Show the placeholder message when contacts are loading
+		this.show_select_chat_placeholder();
+		
+		this.showContactLoadingSpinner()
+		$('.contact-list').html('<div class="text-center p-3"><i class="fa fa-spinner fa-spin"></i> Loading contacts...</div>');
 		
 		// First, try to get all unique contacts directly
 		frappe.call({
@@ -782,12 +878,68 @@ class WhatsAppChatInterface {
 		// Start processing batches
 		processBatch();
 	}
+
+	// Add function to show placeholder when no chat is selected
+	show_select_chat_placeholder() {
+		// Reset the contact header
+		$('.current-contact-avatar').html('');
+		$('.contact-avatar').hide();
+		$('.contact-avatar').html('');
+		$('.current-contact').html('');
+		
+		// Clear chat area and show placeholder
+		$('.chat-messages').html(`
+			<div class="no-chat-selected">
+
+				<h3>Select a WhatsApp chat to view messages</h3>
+				<p>Choose a contact from the list to start viewing messages</p>
+			</div>
+		`);
+		
+		// Add styles for the placeholder
+		if (!$('#no-chat-styles').length) {
+			$('<style id="no-chat-styles">').text(`
+				.no-chat-selected {
+					display: flex;
+					flex-direction: column;
+					align-items: center;
+					justify-content: center;
+					height: 100%;
+					color: #8696a0;
+					text-align: center;
+					padding: 20px;
+				}
+				.no-chat-icon {
+					font-size: 72px;
+					margin-bottom: 20px;
+					color: #00a884;
+					opacity: 0.8;
+				}
+				.no-chat-selected h3 {
+					font-size: 20px;
+					margin-bottom: 10px;
+					color: #d1d7db;
+				}
+				.no-chat-selected p {
+					font-size: 14px;
+					max-width: 450px;
+					color: #8696a0;
+				}
+			`).appendTo('head');
+		}
+		
+		// Hide the message input area until a chat is selected
+		$('.chat-input-container').hide();
+	}
 	
 	
 	render_contacts(contacts) {
 		const contactList = $('.contact-list');
 		contactList.empty();
-		
+
+		// Show placeholder message in chat area when no contact is selected
+		this.show_select_chat_placeholder();
+	
 		if (contacts.length === 0) {
 			contactList.append(`<div class="text-muted p-4">No contacts found</div>`);
 			return;
@@ -1012,9 +1164,9 @@ class WhatsAppChatInterface {
 		});
 
 		// Select the first contact by default
-		if (contacts.length > 0) {
-			$('.contact-item').first().trigger('click');
-		}
+		// if (contacts.length > 0) {
+		// 	$('.contact-item').first().trigger('click');
+		// }
 	}
 	
 		
@@ -1030,6 +1182,9 @@ class WhatsAppChatInterface {
 			const secondPart = number.slice(7, 12);
 			return `+${countryCode} ${firstPart} ${secondPart}`;
 		};
+
+		// Show loading in message area
+        $('.chat-messages').html('<div class="text-center p-3"><i class="fa fa-spinner fa-spin"></i> Loading messages...</div>');
 	
 		// Fetch contact details using your existing fetch_contact_details function
 		const fetchContactName = (phoneNumber) => {
@@ -1107,11 +1262,27 @@ class WhatsAppChatInterface {
 				if (allMessages.length > 0) {
 					me.render_messages(allMessages, phoneNumber);
 				} else {
-					frappe.msgprint({
-						title: __("No Messages Found"),
-						message: __("There are no messages for this contact."),
-						indicator: "orange"
-					});
+					// Show empty chat message
+					$('.chat-messages').html(`
+						<div class="text-center p-4">
+							<div class="empty-chat-icon mb-3">
+								<i class="fa fa-comments-o"></i>
+							</div>
+							<p>No messages found for this contact.</p>
+							<p>Start a conversation by sending a message below!</p>
+						</div>
+					`);
+					
+					// Add styles for empty chat
+					if (!$('#empty-chat-styles').length) {
+						$('<style id="empty-chat-styles">').text(`
+							.empty-chat-icon {
+								font-size: 48px;
+								color: #00a884;
+								opacity: 0.7;
+							}
+						`).appendTo('head');
+					}
 				}
 			}).catch(err => {
 				console.error("❌ Failed to load messages:", err);
@@ -1131,47 +1302,90 @@ class WhatsAppChatInterface {
 		});
 	}
 
-    
-    render_messages(messages, phoneNumber) {
+   
+    // In the render_messages function, modify the messageItem creation to include the dropdown menu
+
+	render_messages(messages, phoneNumber) {
+		const me = this; // Make sure 'this' reference is stored properly
 		const messagesContainer = $('.chat-messages');
 		messagesContainer.empty();
-		
+	
 		let currentDate = null;
 		
-		messages.forEach((msg, index) => {
+		// First pass: separate regular messages and reactions
+		const regularMessages = [];
+		const reactionMessages = {};
+		
+		// Process messages to identify reactions and their targets
+		messages.forEach((msg) => {
+			if (msg.content_type === 'reaction' && msg.reply_to_message_id && msg.message) {
+				// Store reactions by the ID of the message they're reacting to
+				if (!reactionMessages[msg.reply_to_message_id]) {
+					reactionMessages[msg.reply_to_message_id] = [];
+				}
+				reactionMessages[msg.reply_to_message_id].push({
+					emoji: msg.message,
+					from: msg.from,
+					name: msg.name,
+					creation: msg.creation
+				});
+			} else {
+				// Store regular messages
+				regularMessages.push(msg);
+			}
+		});
+		
+		// Second pass: render regular messages with their reactions
+		regularMessages.forEach((msg, index) => {
 			const messageDate = new Date(msg.creation);
 			const formattedDate = formatMessageDate(messageDate);
-			
+	
 			// Add date separator if this is a new date
 			if (formattedDate !== currentDate) {
 				currentDate = formattedDate;
-				
+	
 				const dateSeparator = $(`
 					<div class="date-separator">
 						<div class="date-bubble">${currentDate}</div>
 					</div>
 				`);
-				
+	
 				messagesContainer.append(dateSeparator);
 			}
-			
-			let isOutgoing = msg.from !== phoneNumber;
+	
+			let isOutgoing = msg.to == phoneNumber;
 			let messageClass = isOutgoing ? 'outgoing' : 'incoming';
 			let messageContent = msg.message || '';
+			
+			// Format the text content
 			let formattedMessage = messageContent
 				.replace(/\*/g, '**') // Optional: unify bold markers
 				.replace(/\n/g, '<br>') // Convert newlines to <br>
-				.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') // Convert *bold* to <b>bold</b>
+				.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') // Convert **bold** to <b>bold</b>
 				.replace(/_(.*?)_/g, '<i>$1</i>'); // Convert _italic_ to <i>italic</i>
-			let wrappedTemplate = `<div style="white-space: pre-wrap;">${formattedMessage}</div>`;
 			
-			// Handle different content types
-			if (msg.content_type === 'image' && msg.attach) {
-				wrappedTemplate = `<img src="${msg.attach}" style="max-width: 100%; height: auto;" />`;
-			} else if ((msg.content_type === 'document' || msg.content_type === 'audio' || msg.content_type === 'video') && msg.attach) {
-				wrappedTemplate = `<a href="${msg.attach}" target="_blank" style="color: #53BDEB;">Click Here to Open ${msg.content_type}</a>`;
+			// Start with an empty template
+			let wrappedTemplate = '';
+			
+			// 1. Append media (image/file) first
+			if (msg.attach) {
+				if (msg.content_type === 'image') {
+					wrappedTemplate += `<div><img src="${msg.attach}" style="max-width: 100%; height: auto; margin-bottom: 5px;" /></div>`;
+				} else if (['document', 'audio', 'video'].includes(msg.content_type)) {
+					wrappedTemplate += `<div style="margin-bottom: 5px;">
+						<a href="${msg.attach}" target="_blank" style="color: #53BDEB;">
+							Click Here to Open ${msg.content_type}
+						</a>
+					</div>`;
+				}
 			}
 			
+			// 2. Then add the text *after* the image/file
+			if (formattedMessage.trim() !== '') {
+				wrappedTemplate += `<div style="white-space: pre-wrap;">${formattedMessage}</div>`;
+			}
+			
+	
 			(function loadFontAwesome() {
 				if (!document.getElementById('font-awesome')) {
 					const link = document.createElement('link');
@@ -1181,7 +1395,7 @@ class WhatsAppChatInterface {
 					document.head.appendChild(link);
 				}
 			})();
-			
+	
 			const getMessageStatusIcon = (status) => {
 				if (status === 'sent') {
 					return `
@@ -1211,14 +1425,23 @@ class WhatsAppChatInterface {
 				}
 				return '';
 			};
-			
+	
 			// Format time in 12-hour format (WhatsApp style)
 			const formatTime = (date) => {
 				return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 			};
-			
+	
+			// Create the message item with dropdown menu
 			const messageItem = $(`
 				<div class="message ${messageClass}" data-name="${msg.name}">
+					<div class="message-dropdown">
+						<i class="fa fa-chevron-down message-dropdown-toggle"></i>
+						<div class="message-dropdown-menu">
+							<div class="message-dropdown-item delete-message">
+								<i class="fa fa-trash"></i><span class="delete-label"> Delete For Me</span>
+							</div>
+						</div>
+					</div>
 					<div class="message-content">${wrappedTemplate}</div>
 					<div class="message-meta" style="text-align: right; align-items: center;">
 						<span class="message-time">
@@ -1228,13 +1451,81 @@ class WhatsAppChatInterface {
 					</div>
 				</div>
 			`);
+	
+			// Add click handler for dropdown toggle
+			messageItem.find('.message-dropdown-toggle').on('click', function(e) {
+				e.stopPropagation();
+				
+				// Close all other open dropdown menus first
+				$('.message-dropdown-menu').not($(this).siblings('.message-dropdown-menu')).removeClass('show');
+				$('.message-dropdown').not($(this).parent()).removeClass('active');
+				
+				// Toggle this dropdown menu
+				$(this).siblings('.message-dropdown-menu').toggleClass('show');
+				$(this).parent('.message-dropdown').toggleClass('active');
+			});
+	
+			// Add click handler for delete message option
+			messageItem.find('.delete-message').on('click', function(e) {
+				e.stopPropagation();
+				const msgName = $(this).closest('.message').attr('data-name'); // Use attr instead of data for reliability
+				console.log("Deleting message with name:", msgName); // Debugging: Log the `msgName`
+				
+				// Hide the dropdown menu when delete is clicked
+				$(this).closest('.message-dropdown-menu').removeClass('show');
+				$(this).closest('.message-dropdown').removeClass('active');
+				
+				if (msgName) {
+					me.deleteMessage(msgName); // Call the deleteMessage function with the message name
+				} else {
+					console.error("Message name not found", $(this).closest('.message'));
+					frappe.throw("Error: Could not delete message. Message ID not found.");
+				}
+			});
+	
+			// Add reactions to this message if there are any
+			if (msg.message_id && reactionMessages[msg.message_id] && reactionMessages[msg.message_id].length > 0) {
+				// Create a reactions container
+				const reactionsContainer = $(`<div class="message-reactions"></div>`);
+				
+				// Add each reaction emoji
+				reactionMessages[msg.message_id].forEach(reaction => {
+					const reactionElement = $(`
+						<div class="reaction-bubble" data-name="${reaction.name}" title="Reaction from ${reaction.from}">
+							${reaction.emoji}
+						</div>
+					`);
+					
+					// Add delete capability to reaction if it's from the current user
+					if (reaction.from === me.user_phone) {
+						reactionElement.on('click', function() {
+							me.deleteMessage(reaction.name);
+						});
+						reactionElement.addClass('own-reaction');
+					}
+					
+					reactionsContainer.append(reactionElement);
+				});
+				
+				// Append reactions to the message
+				messageItem.append(reactionsContainer);
+			}
 			
 			messagesContainer.append(messageItem);
 		});
-		
-		// Add style for date separators
-		if (!$('#date-separator-styles').length) {
-			$('<style id="date-separator-styles">').text(`
+	
+		// Close dropdowns when clicking elsewhere
+		$(document).on('click', function(e) {
+			// Only close dropdowns if the click is outside the dropdown
+			if ($(e.target).closest('.message-dropdown').length === 0) {
+				$('.message-dropdown-menu').removeClass('show');
+				$('.message-dropdown').removeClass('active');
+			}
+		});
+	
+		// Add style for date separators, dropdown menu, and reactions
+		if (!$('#message-dropdown-styles').length) {
+			$('<style id="message-dropdown-styles">').text(`
 				.date-separator {
 					text-align: center;
 					margin: 10px 0;
@@ -1249,17 +1540,130 @@ class WhatsAppChatInterface {
 					display: inline-block;
 					text-transform: uppercase;
 				}
+	
+				/* Dropdown styles */
+				.message-dropdown {
+					position: absolute;
+					top: 5px;
+					right: 5px;
+					opacity: 0;
+					transition: opacity 0.2s;
+					z-index: 10;
+				}
+				.message:hover .message-dropdown {
+					opacity: 1;
+				}
+				.message-dropdown.active .message-dropdown-toggle {
+					color: white; /* Change color when active */
+				}
+				.message-dropdown-toggle {
+					color: #8696a0;
+					cursor: pointer;
+					padding: 4px 6px;
+					font-size: 12px;
+					background-color: rgba(35, 45, 54, 1); /* Semi-transparent background */
+					border-radius: 25%;
+					box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); /* Shadow for visibility */
+					display: inline-flex;
+					justify-content: center;
+					align-items: center;
+					width: 22px;
+					height: 22px;
+				}
+				.message-dropdown-menu {
+					display: none;
+					position: absolute;
+					right: 0;
+					background-color: #233138;
+					border-radius: 6px;
+					min-width: 160px;
+					box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+					z-index: 100;
+				}
+				.message-dropdown-menu.show {
+					display: block;
+				}
+				.message-dropdown-item {
+					padding: 8px 15px;
+					color: #ffffff;
+					cursor: pointer;
+					font-size: 14px;
+					white-space: nowrap; /* Allow wrapping */
+				}
+				.message-dropdown-item:hover {
+					background-color: #202c33;
+					border-radius: 6px;
+				}
+				.message-dropdown-item i {
+					margin-right: 8px;
+					color: #8696a0;
+				}
+				.delete-message:hover i {
+					color: #F15C6D;
+				}
+	
+				/* Adjust message styles for dropdown icon */
+				.message {
+					position: relative;
+					padding-right: 20px;
+				}
+				
+				/* Reaction styles */
+				.message-reactions {
+					display: flex;
+					flex-wrap: wrap;
+					gap: 4px;
+					margin-top: 2px;
+					margin-left: 8px;
+					margin-right: 8px;
+				}
+				
+				.reaction-bubble {
+					font-size: 1rem;
+					background-color: #202c33;
+					padding: 3px 6px;
+					border-radius: 12px;
+					box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
+				}
+				
+				.own-reaction {
+					cursor: pointer;
+					position: relative;
+				}
+				
+				.own-reaction:hover {
+					background-color: #293540;
+				}
+				
+				.own-reaction:hover::after {
+					content: 'Delete';
+					position: absolute;
+					top: -20px;
+					left: 50%;
+					transform: translateX(-50%);
+					background-color: #202c33;
+					color: #8696a0;
+					font-size: 0.7rem;
+					padding: 2px 5px;
+					border-radius: 4px;
+					white-space: nowrap;
+				}
 			`).appendTo('head');
 		}
-		
+	
 		// Scroll to bottom
-		messagesContainer.scrollTop(messagesContainer[0].scrollHeight);
-
+		setTimeout(() => {
+			messagesContainer.scrollTop(messagesContainer[0].scrollHeight);
+		}, 100);
+	
 		function formatMessageDate(date) {
 			const today = new Date();
 			const yesterday = new Date(today);
 			yesterday.setDate(yesterday.getDate() - 1);
-			
+	
 			// Check if the message is from today
 			if (date.toDateString() === today.toDateString()) {
 				return 'TODAY';
@@ -1279,38 +1683,218 @@ class WhatsAppChatInterface {
 				return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 			}
 		}
+	}
+	
+	// Make sure this method is included in your WhatsAppChatInterface class
+	deleteMessage(msgName) {
+		if (!msgName) {
+			console.error("Cannot delete message: No message name provided");
+			return;
+		}
 		
+		const me = this;
+	
+		// Show confirmation dialog
+		frappe.confirm(
+			'Are you sure you want to delete this message?',
+			function() {
+				// On yes
+				frappe.call({
+					method: 'frappe.client.delete',
+					args: {
+						doctype: 'WhatsApp Message',
+						name: msgName
+					},
+					callback: function(response) {
+						if (response.exc) {
+							// If there was an error
+							console.error("Delete error:", response.exc);
+							frappe.msgprint({
+								title: __("Error"),
+								message: __("Could not delete message. " + response.exc),
+								indicator: "red"
+							});
+						} else {
+							// Remove the message from UI
+							$(`.message[data-name="${msgName}"]`).fadeOut(300, function() {
+								$(this).remove();
+	
+								// Show success message
+								me.show_notification("Message deleted successfully");
+	
+								// Reload all messages to refresh the view
+								if (me.current_contact) {
+									me.load_messages(me.current_contact);
+								}
+							});
+						}
+					}
+				});
+			},
+			function() {
+				// On no - do nothing
+			}
+		);
 	}
 
 	
-    send_message() {
-        const messageInput = $('#message-input');
-        const message = messageInput.val().trim();
-        
-        if (!message || !this.current_contact) return;
-        
-        const me = this;
-        frappe.call({
-            method: 'frappe.client.insert',
-            args: {
-                doc: {
-                    doctype: 'WhatsApp Message',
-                    type: 'Outgoing',
-                    to: this.current_contact,
-                    message: message,
-                    content_type: 'text',
-                    status: 'queued'
-                }
-            },
-            callback: function(r) {
-                if (r.message) {
-                    messageInput.val('');
-                    me.load_messages(me.current_contact);
-                }
-            }
-        });
+    setup_file_upload() {
+		const me = this;
 		
-    }
+		// Click on attach button should trigger file input click
+		$('.attach-file-btn').on('click', function() {
+			$('#file-input').click();
+		});
+		
+		// Handle file selection
+		$('#file-input').on('change', function(e) {
+			const file = e.target.files[0];
+			if (!file) return;
+			
+			const filePreviewContainer = $('.file-preview-container');
+			const previewContent = $('.preview-content');
+			
+			// Clear previous preview
+			previewContent.empty();
+			
+			// Show loading indicator
+			previewContent.html(`
+				<div class="file-uploading">
+					<i class="fa fa-spinner fa-spin"></i> Uploading ${file.name}...
+				</div>
+			`);
+			
+			// Show preview container
+			filePreviewContainer.show();
+			
+			// Upload the file immediately when selected
+			const formData = new FormData();
+			formData.append('file', file);
+			formData.append('is_private', 0);
+			formData.append('folder', 'Home/Attachments');
+			
+			$.ajax({
+				url: '/api/method/upload_file',
+				type: 'POST',
+				data: formData,
+				processData: false,
+				contentType: false,
+				success: function(data) {
+					// Store the file URL as a data attribute
+					$('#file-input').data('file-url', data.message.file_url);
+					
+					// Update preview based on file type
+					if (file.type.startsWith('image/')) {
+						// Image preview
+						previewContent.html(`
+							<div class="image-preview">
+								<img src="${data.message.file_url}" alt="Preview">
+								<div class="file-name">${file.name}</div>
+							</div>
+						`);
+					} else {
+						// Document preview
+						let icon = 'fa-file';
+						if (file.name.endsWith('.pdf')) icon = 'fa-file-pdf-o';
+						else if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) icon = 'fa-file-word-o';
+						else if (file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) icon = 'fa-file-excel-o';
+						
+						previewContent.html(`
+							<div class="doc-preview">
+								<i class="fa ${icon} fa-3x" aria-hidden="true"></i>
+								<div class="file-name">${file.name}</div>
+							</div>
+						`);
+					}
+					
+					// Show the send button
+					$('#send-button').show();
+				},
+				error: function(xhr, status, error) {
+					previewContent.html(`
+						<div class="error-message">
+							<i class="fa fa-exclamation-circle"></i> Upload failed: ${error}
+						</div>
+					`);
+				}
+			});
+		});
+		
+		// Remove file button
+		$('.remove-file-btn').on('click', function() {
+			$('#file-input').val('');
+			$('#file-input').removeData('file-url');
+			$('.file-preview-container').hide();
+			
+			// Hide the send button if there's no text
+			if ($('#message-input').val().trim() === '') {
+				$('#send-button').hide();
+			}
+		});
+	}
+	
+	send_message() {
+		const messageInput = $('#message-input');
+		const message = messageInput.val().trim();
+		const fileInput = $('#file-input');
+		const fileUrl = fileInput.data('file-url');
+		
+		if ((!message && !fileUrl) || !this.current_contact) return;
+		
+		const me = this;
+		
+		// Determine content type based on file
+		let contentType = 'text';
+		
+		if (fileUrl) {
+			const fileName = fileInput[0].files[0].name.toLowerCase();
+			if (fileName.match(/\.(jpeg|jpg|gif|png|svg|webp)$/)) {
+				contentType = 'image';
+			} else {
+				contentType = 'document';
+			}
+		}
+		
+		// Ensure the phone number is a string
+		const phoneNumber = String(this.current_contact);
+		
+		// Create the WhatsApp message
+		frappe.call({
+			method: 'frappe.client.insert',
+			args: {
+				doc: {
+					doctype: 'WhatsApp Message',
+					type: 'Outgoing',
+					to: phoneNumber, // Now it's guaranteed to be a string
+					message: message,
+					content_type: contentType,
+					attach: fileUrl || null,
+					status: 'queued'
+				}
+			},
+			callback: function(r) {
+				if (r.message) {
+					// Clear inputs
+					messageInput.val('');
+					fileInput.val('');
+					fileInput.removeData('file-url');
+					$('.file-preview-container').hide();
+					$('#send-button').hide();
+					
+					// Reload messages
+					me.load_messages(me.current_contact);
+				}
+			},
+			error: function(xhr, status) {
+				frappe.msgprint({
+					title: __('Error'),
+					indicator: 'red',
+					message: __('Failed to send message. Please try again.')
+				});
+				console.error(xhr.responseText);
+			}
+		});
+	}
     
     show_template_dialog() {
 		const me = this;
@@ -1549,3 +2133,162 @@ class WhatsAppChatInterface {
 		dialog.show();
 	  }
 }
+
+
+
+
+
+
+
+	    // add_styles() {
+    //     // Add CSS for the chat interface
+    //     $('<style>').text(`
+	// 		.chat-container {
+	// 			display: flex;
+	// 			height: calc(100vh - 170px);
+	// 			background-color: #dadbd3; /* WhatsApp light gray background */
+	// 		}
+	// 		.chat-sidebar {
+	// 			width: 30%;
+	// 			border-right: 1px solid #d1d7db;
+	// 			display: flex;
+	// 			flex-direction: column;
+	// 			background-color: #ffffff;
+	// 		}
+	// 		.chat-search {
+	// 			padding: 10px;
+	// 			border-bottom: 1px solid #e0e0e0;
+	// 		}
+	// 		.chat-search input {
+	// 			background-color: #f0f2f5;
+	// 			border-radius: 18px;
+	// 			border: none;
+	// 			padding: 8px 12px;
+	// 			color: #333333; /* Darker text for better readability */
+	// 			width: 100%;
+	// 		}
+	// 		.contact-list {
+	// 			flex: 1;
+	// 			overflow-y: auto;
+	// 		}
+	// 		.contact-item {
+	// 			padding: 12px 15px;
+	// 			border-bottom: 1px solid #f0f0f0;
+	// 			cursor: pointer;
+	// 			color: #111b21; /* WhatsApp dark text */
+	// 			font-weight: 400;
+	// 		}
+	// 		.contact-item:hover {
+	// 			background-color: #f5f6f6;
+	// 		}
+	// 		.contact-item.active {
+	// 			background-color: #f0f2f5;
+	// 		}
+	// 		.chat-content {
+	// 			width: 70%;
+	// 			display: flex;
+	// 			flex-direction: column;
+	// 		}
+	// 		.chat-header {
+	// 			padding: 10px 15px;
+	// 			background-color: #f0f2f5;
+	// 			border-bottom: 1px solid #d1d7db;
+	// 			color: #111b21; /* WhatsApp dark text */
+	// 		}
+	// 		.chat-messages {
+	// 			flex: 1;
+	// 			overflow-y: auto;
+	// 			padding: 15px;
+	// 			background-color: #efeae2; /* WhatsApp chat background */
+	// 			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23aaaaaa' fill-opacity='0.1'/%3E%3C/svg%3E");
+	// 		}
+	// 		.message {
+	// 			max-width: 30%;
+	// 			padding: 8px 12px;
+	// 			margin-bottom: 10px;
+	// 			border-radius: 7.5px;
+	// 			position: relative;
+	// 			word-wrap: break-word;
+	// 			color: #111b21; /* WhatsApp dark text */
+	// 			box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+	// 			line-height: 1.4;
+	// 		}
+	// 		.message.incoming {
+	// 			background-color: #ffffff;
+	// 			align-self: flex-start;
+	// 			margin-right: auto;
+	// 			border-top-left-radius: 0;
+	// 		}
+	// 		.message.outgoing {
+	// 			background-color: #d9fdd3; /* WhatsApp green message bubble */
+	// 			align-self: flex-end;
+	// 			margin-left: auto;
+	// 			border-top-right-radius: 0;
+	// 		}
+	// 		.chat-input-container {
+	// 			padding: 10px;
+	// 			background-color: #f0f2f5;
+	// 			display: flex;
+	// 			flex-direction: column;
+	// 			border-top: 1px solid #d1d7db;
+	// 		}
+	// 		#message-input {
+	// 			resize: none;
+	// 			border-radius: 20px;
+	// 			padding: 9px 12px;
+	// 			margin-bottom: 10px;
+	// 			height: 45px;
+	// 			border: 1px solid #d1d7db;
+	// 			color: #111b21; /* WhatsApp dark text */
+	// 			background-color: #f0f2f5;
+	// 		}
+	// 		.chat-actions {
+	// 			display: flex;
+	// 			justify-content: space-between;
+	// 		}
+	// 		.btn-primary {
+	// 			background-color: #00a884; /* WhatsApp green */
+	// 			border-color: #00a884;
+	// 			color: white;
+	// 		}
+	// 		.btn-default {
+	// 			background-color: #f0f2f5;
+	// 			border-color: #d1d7db;
+	// 			color: #54656f;
+	// 		}
+	// 		.message-time {
+	// 			font-size: 11px;
+	// 			color: #667781; /* WhatsApp time text color */
+	// 			text-align: right;
+	// 			margin-top: 2px;
+	// 		}
+	// 		.message-status {
+	// 			font-size: 11px;
+	// 			color: #667781; /* WhatsApp status text color */
+	// 			margin-left: 5px;
+	// 		}
+
+	// 		@media (max-width: 767px) {
+	// 			.chat-container {
+	// 				flex-direction: column;
+	// 			}
+				
+	// 			.chat-sidebar {
+	// 				width: 100%;
+	// 				height: 30%;
+	// 			}
+				
+	// 			.chat-content {
+	// 				width: 100%;
+	// 				height: 70%;
+	// 			}
+
+	// 			.message {
+	// 				max-width: 75%;
+	// 			}
+	// 		}
+    //     `).appendTo('head');
+    // }
+
+
+	
