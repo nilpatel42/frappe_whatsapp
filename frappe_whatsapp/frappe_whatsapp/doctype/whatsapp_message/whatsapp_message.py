@@ -113,7 +113,7 @@ class WhatsAppMessage(Document):
                     parameters.append({"type": "text", "text": value})
                     template_parameters.append(value)
 
-
+            
             self.template_parameters = json.dumps(template_parameters)
 
             data["template"]["components"].append(
@@ -171,6 +171,10 @@ class WhatsAppMessage(Document):
                     "parameters": header_parameters,
                 })
 
+        if self.message_type == "Template" and template.sample_values:
+            # Store all parameters for later use in message replacement
+            self.all_parameters = template_parameters
+            
         self.notify(data)
 
     def notify(self, data):
@@ -180,7 +184,7 @@ class WhatsAppMessage(Document):
             "WhatsApp Settings",
         )
         token = settings.get_password("token")
-
+        
         headers = {
             "authorization": f"Bearer {token}",
             "content-type": "application/json",
@@ -193,6 +197,39 @@ class WhatsAppMessage(Document):
             )
             self.message_id = response["messages"][0]["id"]
 
+            # Get the template content
+            if self.message_type == "Template":
+                template_name = self.template
+                template_doc = frappe.get_doc("WhatsApp Templates", template_name)
+                template_content = template_doc.template
+
+                # Initialize message text with the original template content
+                message_text = template_content            
+            
+                if template_doc.sample_values:
+                    # Parse the template parameters from JSON
+                    parameters = []
+                    if self.template_parameters:
+                        try:
+                            parameters = json.loads(self.template_parameters)
+                        except:
+                            pass
+                    
+                    # Replace variables in the format {{1}}, {{2}}, etc.
+                    for idx, param_value in enumerate(parameters, 1):
+                        placeholder = "{{" + str(idx) + "}}"
+                        message_text = message_text.replace(placeholder, str(param_value))
+            
+                # Save the final message text
+                self.message = message_text
+            
+                # If document already exists in the database, use db_set
+                if hasattr(self, 'is_new') and not self.is_new and self.name:
+                    frappe.db.set_value("WhatsApp Message", self.name, "message", message_text)
+                    frappe.db.commit()
+                else:
+                    None
+                    
         except Exception as e:
             res = frappe.flags.integration_request.json()["error"]
             error_message = res.get("Error", res.get("message"))
@@ -208,6 +245,7 @@ class WhatsAppMessage(Document):
 
     def format_number(self, number):
         """Format number."""
+        number = str(number)
         if number.startswith("+"):
             number = number[1 : len(number)]
 

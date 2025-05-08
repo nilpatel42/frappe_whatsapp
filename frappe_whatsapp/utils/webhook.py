@@ -98,7 +98,7 @@ def post():
 					"doctype": "WhatsApp Message",
 					"type": "Incoming",
 					"from": message['from'],
-					"message": message['reaction']['emoji'],
+					"message": message['reaction'].get('emoji'),
 					"reply_to_message_id": message['reaction']['message_id'],
 					"message_id": message['id'],
 					"content_type": "reaction",

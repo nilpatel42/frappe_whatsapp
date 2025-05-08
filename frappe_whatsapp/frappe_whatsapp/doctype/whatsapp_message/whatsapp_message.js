@@ -34,7 +34,7 @@ frappe.ui.form.on('WhatsApp Message', {
 
         // Refresh the form fields to apply the listeners
         frm.refresh_fields();
-	},
+    },
 
 	use_template: function(frm) {
         if (frm.doc.use_template) {
@@ -81,7 +81,7 @@ function generate_whatsapp_preview(frm) {
         ? "border-top-right-radius: 2px; border-bottom-left-radius: 12px;" 
         : "border-top-left-radius: 2px; border-bottom-right-radius: 12px;";
 
-    let messageContent = frm.doc.message || "";
+    let messageContent = frm.doc.message;
     let wrappedMessage = messageContent
         .replace(/\*/g, "**")
         .replace(/\n/g, "<br>")
