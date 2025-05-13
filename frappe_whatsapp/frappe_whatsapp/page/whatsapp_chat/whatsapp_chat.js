@@ -120,6 +120,10 @@ class WhatsAppChatInterface {
 				border-bottom: 1px solid #38424a;
 				height: 65px;
 				padding-top: 12px;
+				padding-right: 10px;
+				align-items: center;
+				display: flex;
+				gap: 10px;
 			}
 			.chat-search input {
 				background-color: #202c33;
@@ -128,6 +132,7 @@ class WhatsAppChatInterface {
 				padding: 8px 12px;
 				color: #ffffff;
 				width: 100%;
+				flex: 1;
 			}
 			.contact-list {
 				flex: 1;
@@ -356,7 +361,21 @@ class WhatsAppChatInterface {
 				margin-right: -5px;
 				margin-bottom: 15px;
 			}
-	
+
+			.new-contact-btn {
+				width: 32px;
+				height: 32px;
+				border-radius: 5px;
+				background-color: transparent;
+				border: None;
+				font-size: 30px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				color: #ffffff;
+				opacity: 0.7;
+			}
+
 			/* Mobile view styles with toggler */
 			@media (max-width: 767px) {
 				.chat-container {
@@ -434,6 +453,8 @@ class WhatsAppChatInterface {
                 }
             }
 		`).appendTo('head');
+
+		
 	}
 	
 	setup_page_layout() {
@@ -443,6 +464,7 @@ class WhatsAppChatInterface {
 				<div class="chat-sidebar">
 					<div class="chat-search">
 						<input type="text" id="contact-search" placeholder="🔍︎   Search">
+						<button class="new-contact-btn" title="New chat"><i class="fa fa-plus-square-o" aria-hidden="true"></i></button>
 					</div>
 					<div class="contact-list"></div>
 				</div>
@@ -583,6 +605,73 @@ class WhatsAppChatInterface {
 			}
 		});
 	}
+
+	show_new_contact_dialog() {
+		const me = this;
+		
+		let dialog = new frappe.ui.Dialog({
+		  title: 'Send Message to New Number',
+		  fields: [
+			{
+			  label: 'Phone Number',
+			  fieldname: 'phone_number',
+			  fieldtype: 'Data',
+			  reqd: 1,
+			  description: 'Enter phone number with country code (e.g., +919876543210)'
+			}
+		  ],
+		  primary_action_label: 'Start Chat',
+		  primary_action(values) {
+			if (!values.phone_number) return;
+			
+			// Clean the phone number (remove spaces, hyphens, parentheses)
+			let phoneNumber = values.phone_number.replace(/[\s\-()]/g, '');
+
+			// Ensure it starts with a '+'
+			if (!phoneNumber.startsWith('+')) {
+			phoneNumber = '+' + phoneNumber;
+			}
+			
+			// Set as current contact and load an empty message list
+			me.current_contact = phoneNumber;
+			
+			// Update UI
+			$('.current-contact').text(phoneNumber);
+			$('.chat-messages').empty().append('<div class="no-messages">No messages yet</div>');
+			$('.chat-input-container').show();
+			
+			// Add to contact list if not already present
+			if ($('.contact-item[data-number="' + phoneNumber + '"]').length === 0) {
+			  const contactItem = $(`
+				<div class="contact-item" data-number="${phoneNumber}">
+				  <div class="contact-avatar">${phoneNumber.charAt(1)}</div>
+				  <div class="contact-info">
+					<div class="contact-name">New Contact</div>
+					<div class="contact-number">${phoneNumber}</div>
+				  </div>
+				</div>
+			  `);
+			  
+			  $('.contact-list').prepend(contactItem);
+			  
+			  // Activate the new contact
+			  $('.contact-item').removeClass('active');
+			  contactItem.addClass('active');
+			}
+			
+			// On mobile, switch to chat view
+			if ($(window).width() <= 768) {
+			  $('.chat-sidebar').hide();
+			  $('.chat-content').show();
+			  $('.back-to-contacts-btn').show();
+			}
+			
+			dialog.hide();
+		  }
+		});
+		
+		dialog.show();
+	  }
 	    
     setup_events() {
 		const messageInput = document.getElementById('message-input');
@@ -648,8 +737,12 @@ class WhatsAppChatInterface {
 		
 		// Event for using templates
 		$('.btn-use-template').on('click', function() {
-			me.show_template_dialog();
+			me.send_template();
 		});
+
+		$('.new-contact-btn').on('click', function() {
+			me.show_new_contact_dialog();
+		  });
 		
 		// Enter key to send message
 		$('#message-input').on('keydown', function(e) {
@@ -735,14 +828,6 @@ class WhatsAppChatInterface {
 				return;
 			}
 
-			const formatPhoneNumber = (number) => {
-				// Ensure the number is a string
-				number = number.toString();            
-				const countryCode = number.slice(0, 2);            
-				const firstPart = number.slice(2, 7);            
-				const secondPart = number.slice(7, 12);            
-				return `+${countryCode} ${firstPart} ${secondPart}`;
-			};
 			
 			const start = currentBatch * batchSize;
 			const end = Math.min(start + batchSize, phoneNumbers.length);
@@ -1018,11 +1103,17 @@ class WhatsAppChatInterface {
 			const formatPhoneNumber = (number) => {
 				// Ensure the number is a string
 				number = number.toString();
+			
+				// Remove any existing formatting or plus signs
+				number = number.replace(/\D/g, '');
+			
 				const countryCode = number.slice(0, 2);
 				const firstPart = number.slice(2, 7);
 				const secondPart = number.slice(7, 12);
+			
 				return `+${countryCode} ${firstPart} ${secondPart}`;
 			};
+			
 
 			const contactItem = $(`
 				<div class="contact-item" data-number="${contact.number}">
@@ -1116,6 +1207,7 @@ class WhatsAppChatInterface {
 				}
 				.contact-search {
 					position: relative;
+					
 				}
 				.contact-search input {
 					width: 100%;
@@ -1177,11 +1269,17 @@ class WhatsAppChatInterface {
 		const formatPhoneNumber = (number) => {
 			// Ensure the number is a string
 			number = number.toString();
+		
+			// Remove any existing formatting or plus signs
+			number = number.replace(/\D/g, '');
+		
 			const countryCode = number.slice(0, 2);
 			const firstPart = number.slice(2, 7);
 			const secondPart = number.slice(7, 12);
+		
 			return `+${countryCode} ${firstPart} ${secondPart}`;
 		};
+		
 
 		// Show loading in message area
         $('.chat-messages').html('<div class="text-center p-3"><i class="fa fa-spinner fa-spin"></i> Loading messages...</div>');
@@ -1719,9 +1817,7 @@ class WhatsAppChatInterface {
 							$(`.message[data-name="${msgName}"]`).fadeOut(300, function() {
 								$(this).remove();
 	
-								// Show success message
-								me.show_notification("Message deleted successfully");
-	
+
 								// Reload all messages to refresh the view
 								if (me.current_contact) {
 									me.load_messages(me.current_contact);
@@ -1738,100 +1834,143 @@ class WhatsAppChatInterface {
 	}
 
 	
-    setup_file_upload() {
+	setup_file_upload() {
 		const me = this;
 		
-		// Click on attach button should trigger file input click
+		// Click on attach button should open Frappe's file browser
 		$('.attach-file-btn').on('click', function() {
-			$('#file-input').click();
+		  // Use Frappe's built-in file browser dialog
+		  new frappe.ui.FileUploader({
+			folder: "Home/Attachments",
+			doctype: "User", // Change this to the appropriate doctype for your use case
+			docname: frappe.session.user, // Change this to the appropriate docname for your use case
+			restrictions: {
+			  allowed_file_types: ["image/*", ".pdf", ".doc", ".docx", ".xlsx", ".xls"] // Optional: specify allowed file types
+			},
+			multiple: false, // Set to true if you want to allow multiple files
+			on_success: function(file_doc) {
+			  const filePreviewContainer = $('.file-preview-container');
+			  const previewContent = $('.preview-content');
+			  
+			  // Clear previous preview
+			  previewContent.empty();
+			  
+			  // Create a file object mock and store it
+			  const fileMock = {
+				name: file_doc.file_name,
+				type: file_doc.file_type || determine_file_type(file_doc.file_name),
+				size: file_doc.file_size || 0
+			  };
+			  
+			  // Store the file data as data attributes
+			  $('#file-input').data('file', fileMock);
+			  $('#file-input').data('file-url', file_doc.file_url);
+			  $('#file-input').data('file-name', file_doc.file_name);
+			  $('#file-input').data('file-id', file_doc.name);
+			  
+			  // Update preview based on file type
+			  const isImage = file_doc.is_image || file_doc.file_name.match(/\.(jpeg|jpg|gif|png)$/i);
+			  
+			  if (isImage) {
+				// Image preview
+				previewContent.html(`
+				  <div class="image-preview">
+					<img src="${file_doc.file_url}" alt="Preview">
+					<div class="file-name">${file_doc.file_name}</div>
+				  </div>
+				`);
+			  } else {
+				// Document preview
+				let icon = 'fa-file';
+				const fileName = file_doc.file_name.toLowerCase();
+				if (fileName.endsWith('.pdf')) icon = 'fa-file-pdf-o';
+				else if (fileName.endsWith('.doc') || fileName.endsWith('.docx')) icon = 'fa-file-word-o';
+				else if (fileName.endsWith('.xls') || fileName.endsWith('.xlsx')) icon = 'fa-file-excel-o';
+				
+				previewContent.html(`
+				  <div class="doc-preview">
+					<i class="fa ${icon} fa-3x" aria-hidden="true"></i>
+					<div class="file-name">${file_doc.file_name}</div>
+				  </div>
+				`);
+			  }
+			  
+			  // Show preview container
+			  filePreviewContainer.show();
+			  
+			  // Show the send button
+			  $('#send-button').show();
+			}
+		  });
 		});
 		
-		// Handle file selection
-		$('#file-input').on('change', function(e) {
-			const file = e.target.files[0];
-			if (!file) return;
-			
-			const filePreviewContainer = $('.file-preview-container');
-			const previewContent = $('.preview-content');
-			
-			// Clear previous preview
-			previewContent.empty();
-			
-			// Show loading indicator
-			previewContent.html(`
-				<div class="file-uploading">
-					<i class="fa fa-spinner fa-spin"></i> Uploading ${file.name}...
-				</div>
-			`);
-			
-			// Show preview container
-			filePreviewContainer.show();
-			
-			// Upload the file immediately when selected
-			const formData = new FormData();
-			formData.append('file', file);
-			formData.append('is_private', 0);
-			formData.append('folder', 'Home/Attachments');
-			
-			$.ajax({
-				url: '/api/method/upload_file',
-				type: 'POST',
-				data: formData,
-				processData: false,
-				contentType: false,
-				success: function(data) {
-					// Store the file URL as a data attribute
-					$('#file-input').data('file-url', data.message.file_url);
-					
-					// Update preview based on file type
-					if (file.type.startsWith('image/')) {
-						// Image preview
-						previewContent.html(`
-							<div class="image-preview">
-								<img src="${data.message.file_url}" alt="Preview">
-								<div class="file-name">${file.name}</div>
-							</div>
-						`);
-					} else {
-						// Document preview
-						let icon = 'fa-file';
-						if (file.name.endsWith('.pdf')) icon = 'fa-file-pdf-o';
-						else if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) icon = 'fa-file-word-o';
-						else if (file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) icon = 'fa-file-excel-o';
-						
-						previewContent.html(`
-							<div class="doc-preview">
-								<i class="fa ${icon} fa-3x" aria-hidden="true"></i>
-								<div class="file-name">${file.name}</div>
-							</div>
-						`);
-					}
-					
-					// Show the send button
-					$('#send-button').show();
-				},
-				error: function(xhr, status, error) {
-					previewContent.html(`
-						<div class="error-message">
-							<i class="fa fa-exclamation-circle"></i> Upload failed: ${error}
-						</div>
-					`);
-				}
-			});
-		});
+		// Helper function to determine file type from extension
+		function determine_file_type(filename) {
+			const ext = filename.split('.').pop().toLowerCase();
+			const imgExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp'];
+			const docExts = ['pdf', 'doc', 'docx'];
+			const sheetExts = ['xls', 'xlsx', 'csv'];
+		  
+			if (imgExts.includes(ext)) return 'image/' + (ext === 'jpg' ? 'jpeg' : ext);
+			if (docExts.includes(ext)) return 'application/' + (ext === 'doc' || ext === 'docx' ? 'msword' : ext);
+			if (sheetExts.includes(ext)) return 'application/spreadsheet';
+		  
+			return 'application/octet-stream';
+		  }
 		
 		// Remove file button
 		$('.remove-file-btn').on('click', function() {
-			$('#file-input').val('');
-			$('#file-input').removeData('file-url');
-			$('.file-preview-container').hide();
-			
-			// Hide the send button if there's no text
-			if ($('#message-input').val().trim() === '') {
-				$('#send-button').hide();
-			}
+		  const fileId = $('#file-input').data('file-id');
+		  
+		  // If a file was uploaded, remove it from Frappe
+		  if (fileId) {
+			frappe.call({
+			  method: 'frappe.client.delete',
+			  args: {
+				doctype: 'File',
+				name: fileId
+			  },
+			  callback: function(r) {
+				console.log('File removed:', fileId);
+			  }
+			});
+		  }
+		  
+		  // Clear input and data
+		  $('#file-input').val('');
+		  $('#file-input').removeData('file');
+		  $('#file-input').removeData('file-url');
+		  $('#file-input').removeData('file-name');
+		  $('#file-input').removeData('file-id');
+		  $('.file-preview-container').hide();
+		  
+		  // Hide the send button if there's no text
+		  if ($('#message-input').val().trim() === '') {
+			$('#send-button').hide();
+		  }
 		});
-	}
+		
+		// Function to get file data for sending with message
+		this.get_file_attachment = function() {
+		  const fileUrl = $('#file-input').data('file-url');
+		  const fileName = $('#file-input').data('file-name');
+		  const fileId = $('#file-input').data('file-id');
+		  
+		  if (fileUrl && fileName && fileId) {
+			return {
+			  file_url: fileUrl,
+			  file_name: fileName,
+			  file_id: fileId
+			};
+		  }
+		  return null;
+		};
+		
+		// Function to get mock file object for compatibility with existing code
+		this.get_file_object = function() {
+		  return $('#file-input').data('file') || null;
+		};
+	  }
 	
 	send_message() {
 		const messageInput = $('#message-input');
@@ -1847,7 +1986,7 @@ class WhatsAppChatInterface {
 		let contentType = 'text';
 		
 		if (fileUrl) {
-			const fileName = fileInput[0].files[0].name.toLowerCase();
+			const fileName = fileInput.data('file-name').toLowerCase();
 			if (fileName.match(/\.(jpeg|jpg|gif|png|svg|webp)$/)) {
 				contentType = 'image';
 			} else {
@@ -1896,7 +2035,7 @@ class WhatsAppChatInterface {
 		});
 	}
     
-    show_template_dialog() {
+    send_template() {
 		const me = this;
 		
 		// Create a dialog with initial template selection only
@@ -2133,6 +2272,8 @@ class WhatsAppChatInterface {
 		dialog.show();
 	  }
 }
+
+
 
 
 
