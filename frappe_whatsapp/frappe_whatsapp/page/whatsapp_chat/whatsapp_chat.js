@@ -14,8 +14,38 @@ class WhatsAppChatInterface {
         this.page = page;
         this.setup_fullscreen_mode();
         this.setup_page_layout();
+		this.setup_theme_switcher(); 
         this.load_contacts();
     }
+
+	setup_theme_switcher() {
+		const themeBtn = $('#theme-toggle');
+		
+		// Check if there's a saved theme preference
+		const savedTheme = localStorage.getItem('whatsapp_theme');
+		if (savedTheme === 'light') {
+			$('.chat-container').parent().addClass('light-theme');
+			themeBtn.find('i').removeClass('fa-moon-o').addClass('fa-sun-o');
+		}
+		
+		// Theme toggle click handler
+		themeBtn.on('click', function() {
+			const container = $('.chat-container').parent();
+			const icon = $(this).find('i');
+			
+			if (container.hasClass('light-theme')) {
+				// Switch to dark theme
+				container.removeClass('light-theme');
+				icon.removeClass('fa-sun-o').addClass('fa-moon-o');
+				localStorage.setItem('whatsapp_theme', 'dark');
+			} else {
+				// Switch to light theme
+				container.addClass('light-theme');
+				icon.removeClass('fa-moon-o').addClass('fa-sun-o');
+				localStorage.setItem('whatsapp_theme', 'light');
+			}
+		});
+	}
     
     // Add this new method for fullscreen functionality
     setup_fullscreen_mode() {
@@ -56,6 +86,25 @@ class WhatsAppChatInterface {
 	add_styles() {
 		// Add CSS for the chat interface
 		$('<style>').text(`
+
+			.theme-btn {
+				background-color: transparent;
+				border: none;
+				color: #ffffff;
+				font-size: 18px;
+				cursor: pointer;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 36px;
+				height: 36px;
+				margin-right: 10px;
+			}
+
+			.theme-btn:hover {
+				color: rgb(94, 173, 156);
+			}
+
 			.chat-send-wrapper {
 				position: relative;
 				width: 100%;
@@ -368,7 +417,7 @@ class WhatsAppChatInterface {
 				border-radius: 5px;
 				background-color: transparent;
 				border: None;
-				font-size: 30px;
+				font-size: 22px;
 				display: flex;
 				align-items: center;
 				justify-content: center;
@@ -452,6 +501,146 @@ class WhatsAppChatInterface {
                     height: 100vh !important;
                 }
             }
+			
+
+			/* Light theme styles */
+
+			.light-theme .theme-btn {
+				background-color: transparent;
+				border: none;
+				color: #181D20;
+				font-size: 18px;
+				cursor: pointer;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 36px;
+				height: 36px;
+				margin-right: 10px;
+			}
+
+			.light-theme .theme-btn:hover {
+				color: rgb(94, 173, 156);
+			}
+
+			.light-theme .refresh-btn {
+				background-color: transparent;
+				color: #181D20;
+			}
+			.light-theme .refresh-btn:hover {
+				color: rgb(94, 173, 156);
+			}
+
+			.light-theme .chat-container {
+				background-color: #dadbd3;
+			}
+
+			.light-theme .chat-sidebar {
+				border-right: 1px solid #d1d7db;
+				background-color: #ffffff;
+			}
+
+			.light-theme .chat-search {
+				border-bottom: 1px solid #e0e0e0;
+			}
+
+			.light-theme .chat-search input {
+				background-color: #f0f2f5;
+				color: #333333;
+			}
+
+			.light-theme .new-contact-btn {
+				color: #000000;
+			}
+
+			.light-theme .contact-item {
+				border-bottom: 1px solid #f0f0f0;
+				color: #111b21;
+			}
+
+			.light-theme .contact-item:hover {
+				background-color: #f5f6f6;
+			}
+
+			.light-theme .contact-item.active {
+				background-color: #f0f2f5;
+			}
+
+			.light-theme .contact-name {
+				color: #181D20;
+			}
+
+			.light-theme .template-icon-btn {
+				color: #000000;
+			}
+
+			.light-theme .chat-header {
+				background-color: #f0f2f5;
+				border-bottom: 1px solid #d1d7db;
+				color: #111b21;
+			}
+
+			.light-theme .chat-messages {
+				background-color: #efeae2;
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23aaaaaa' fill-opacity='0.1'/%3E%3C/svg%3E");
+			}
+
+			.light-theme .message {
+				color: #111b21;
+				box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+			}
+
+			.light-theme .message.incoming {
+				background-color: #ffffff;
+			}
+
+			.light-theme .message.outgoing {
+				background-color: #d9fdd3;
+			}
+
+			.light-theme .chat-input-container {
+				background-color: #f0f2f5;
+				border-top: 1px solid #d1d7db;
+			}
+
+			.light-theme #message-input {
+				border: 1px solid #d1d7db;
+				color: #111b21;
+				background-color: #f0f2f5;
+			}
+
+			.light-theme .btn-primary {
+				background-color: #00a884;
+				border-color: #00a884;
+				color: white;
+			}
+
+			.light-theme .btn-default {
+				background-color: #f0f2f5;
+				border-color: #d1d7db;
+				color: #54656f;
+			}
+
+			.light-theme .message-time {
+				color: #667781;
+			}
+
+			.light-theme .message-status {
+				color: #667781;
+			}
+			
+			.light-theme .date-bubble {
+				background-color: white;
+				color: #000000;
+			}
+
+			.light-theme .send-icon-btn {
+				color: #000000;
+			}
+
+			.light-theme .attach-file-btn {
+				color: #000000;
+			}
 		`).appendTo('head');
 
 		
@@ -464,7 +653,7 @@ class WhatsAppChatInterface {
 				<div class="chat-sidebar">
 					<div class="chat-search">
 						<input type="text" id="contact-search" placeholder="🔍︎   Search">
-						<button class="new-contact-btn" title="New chat"><i class="fa fa-plus-square-o" aria-hidden="true"></i></button>
+						<button class="new-contact-btn" title="New chat"><i class="fa fa-plus" aria-hidden="true"></i></button>
 					</div>
 					<div class="contact-list"></div>
 				</div>
@@ -478,6 +667,9 @@ class WhatsAppChatInterface {
 							<div class="current-contact"></div>
 						</div>
 						<div class="chat-header-right">
+							<button id="theme-toggle" class="theme-btn" title="Toggle theme">
+								<i class="fa fa-moon-o" aria-hidden="true"></i>
+							</button>
 							<button id="refresh-button" class="refresh-btn" title="Refresh chats and contacts">
 								<i class="fa fa-refresh" aria-hidden="true"></i>
 							</button>                            
