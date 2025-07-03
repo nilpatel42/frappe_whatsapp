@@ -21,11 +21,35 @@ class WhatsAppNotification(Document):
                 filters={"dt": self.reference_doctype},
                 fields=["fieldname"]
             )
-            if not any(field.fieldname == self.field_name for field in fields): # noqa
-                frappe.throw(f"Field name {self.field_name} does not exists")
+            
+            # Check if field_name is a direct phone number or a field name
+            is_direct_phone_number = self._is_phone_number(self.field_name)
+            
+            if not is_direct_phone_number:
+                # Only validate field existence if it's not a direct phone number
+                if not any(field.fieldname == self.field_name for field in fields):
+                    frappe.throw(f"Field name {self.field_name} does not exist")
+            
         if self.custom_attachment:
             if not self.attach and not self.attach_from_field:
-                frappe.throw("Either <b>Attach</b> a file or add a <b>Attach from field</b> to send attachemt")
+                frappe.throw("Either <b>Attach</b> a file or add a <b>Attach from field</b> to send attachment")
+
+    def _is_phone_number(self, value):
+        """Check if the value is a phone number."""
+        import re
+        
+        # Remove common phone number characters
+        cleaned_value = re.sub(r'[\s\-\(\)\+]', '', str(value))
+        
+        # Check if it's all digits and has reasonable length for a phone number
+        if cleaned_value.isdigit() and 7 <= len(cleaned_value) <= 15:
+            return True
+        
+        # Check for international format with + prefix
+        if value.startswith('+') and cleaned_value[1:].isdigit() and 7 <= len(cleaned_value) <= 15:
+            return True
+        
+        return False
 
     def send_scheduled_message(self) -> dict:
         """Specific to API endpoint Server Scripts."""
@@ -77,9 +101,17 @@ class WhatsAppNotification(Document):
         )
 
         if template:
+            # Handle phone number - check if field_name is a direct number or a field name
+            if self.field_name in doc_data:
+                # field_name is a field in the document
+                phone_number = doc_data[self.field_name]
+            else:
+                # field_name is likely a direct phone number
+                phone_number = self.field_name
+            
             data = {
                 "messaging_product": "whatsapp",
-                "to": self.format_number(doc_data[self.field_name]),
+                "to": self.format_number(phone_number),
                 "type": "template",
                 "template": {
                     "name": template.actual_name,
