@@ -5,647 +5,16 @@ frappe.pages['whatsapp-chat'].on_page_load = function(wrapper) {
         single_column: true
     });
     
-    // Initialize the chat interface
     new WhatsAppChatInterface(page);
 };
 
 class WhatsAppChatInterface {
     constructor(page) {
         this.page = page;
-        this.setup_fullscreen_mode();
         this.setup_page_layout();
-		this.setup_theme_switcher(); 
         this.load_contacts();
-    }
+    }   
 
-	setup_theme_switcher() {
-		const themeBtn = $('#theme-toggle');
-		
-		// Check if there's a saved theme preference
-		const savedTheme = localStorage.getItem('whatsapp_theme');
-		if (savedTheme === 'light') {
-			$('.chat-container').parent().addClass('light-theme');
-			themeBtn.find('i').removeClass('fa-moon-o').addClass('fa-sun-o');
-		}
-		
-		// Theme toggle click handler
-		themeBtn.on('click', function() {
-			const container = $('.chat-container').parent();
-			const icon = $(this).find('i');
-			
-			if (container.hasClass('light-theme')) {
-				// Switch to dark theme
-				container.removeClass('light-theme');
-				icon.removeClass('fa-sun-o').addClass('fa-moon-o');
-				localStorage.setItem('whatsapp_theme', 'dark');
-			} else {
-				// Switch to light theme
-				container.addClass('light-theme');
-				icon.removeClass('fa-moon-o').addClass('fa-sun-o');
-				localStorage.setItem('whatsapp_theme', 'light');
-			}
-		});
-	}
-    
-    // Add this new method for fullscreen functionality
-    setup_fullscreen_mode() {
-        // Hide Frappe header and navigation
-		$('.page-head').hide();
-		$('.page-body').css({
-			'width': '100%'
-		});        
-
-        
-        // Add custom CSS for full height
-        $('<style>')
-            .prop('type', 'text/css')
-            .html(`
-                .page-content {
-                    min-height: 93vh !important;
-                    padding: 0 !important;
-                }
-                
-                .chat-container {
-                    height: 93vh !important;
-                    background-color: #111b21;
-                }
-
-				@media (max-width: 768px) {
-					.page-content {
-						min-height: 88vh !important;
-					}
-					.chat-container {
-						height: 88vh !important;
-                	}
-				}
-            `)
-            .appendTo('head');
-    }
-    
-            
-	add_styles() {
-		// Add CSS for the chat interface
-		$('<style>').text(`
-
-			.theme-btn {
-				background-color: transparent;
-				border: none;
-				color: #ffffff;
-				font-size: 18px;
-				cursor: pointer;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				width: 36px;
-				height: 36px;
-				margin-right: 10px;
-			}
-
-			.theme-btn:hover {
-				color: rgb(94, 173, 156);
-			}
-
-			.chat-send-wrapper {
-				position: relative;
-				width: 100%;
-				display: flex;
-				align-items: center;
-			}
-	
-			.send-icon-btn {
-				position: absolute;
-				right: 50px;
-				top: 50%;
-				transform: translateY(-50%);
-				background-color: transparent;
-				border: none;
-				width: 36px;
-				height: 36px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				cursor: pointer;
-				color: #ffffff;
-				font-size: 18px;
-				margin-top: 0px;
-			}
-			.send-icon-btn:hover {
-				color: rgb(94, 173, 156);
-			}           
-			.template-icon-btn {
-				position: absolute;
-				right: 4px;
-				top: 50%;
-				transform: translateY(-50%);
-				background-color: transparent;
-				border: none;
-				width: 36px;
-				height: 36px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				cursor: pointer;
-				color: #ffffff;
-				font-size: 18px;
-				margin-top: 0px;
-			}
-			.template-icon-btn:hover {
-				color:rgb(94, 173, 156);
-			}
-			.chat-container {
-				display: flex;
-				height: calc(100vh - 170px);
-				background-color: #111b21;
-			}
-			.chat-sidebar {
-				width: 30%;
-				border-right: 1px solid #38424a;
-				display: flex;
-				flex-direction: column;
-				background-color: #181d20;
-			}
-			.chat-search {
-				padding: 10px;
-				border-bottom: 1px solid #38424a;
-				height: 65px;
-				padding-top: 12px;
-				padding-right: 10px;
-				align-items: center;
-				display: flex;
-				gap: 10px;
-			}
-			.chat-search input {
-				background-color: #202c33;
-				border-radius: 6px;
-				border: none;
-				padding: 8px 12px;
-				color: #ffffff;
-				width: 100%;
-				flex: 1;
-			}
-			.contact-list {
-				flex: 1;
-				overflow-y: auto;
-			}
-			.contact-item {
-				padding: 12px 15px;
-				border-bottom: 1px solid #38424a;
-				cursor: pointer;
-				color: #ffffff;
-				font-weight: 400;
-			}
-			.contact-item:hover {
-				background-color: #2a3942;
-			}
-			.contact-item.active {
-				background-color: #202c33;
-			}
-			.chat-content {
-				width: 80%;
-				display: flex;
-				flex-direction: column;
-			}
-			.chat-header {
-				padding: 10px 15px;
-				background-color: #202c33;
-				border-bottom: 1px solid #38424a;
-				color: #ffffff;
-				height: 65px;
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-			}
-			.chat-header-left {
-				display: flex;
-				align-items: center;
-			}
-			.chat-header-right {
-				display: flex;
-				align-items: center;
-			}
-			.refresh-btn {
-				background-color: transparent;
-				border: none;
-				color: #ffffff;
-				font-size: 18px;
-				cursor: pointer;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				width: 36px;
-				height: 36px;
-				margin-left: 10px;
-			}
-			.refresh-btn:hover {
-				color: rgb(94, 173, 156);
-			}
-			.chat-actions {
-				display: flex;
-				align-items: center;
-			}
-			
-			.attach-file-btn {
-				position: absolute;
-				background: transparent;
-				border: none;
-				color: white;
-				cursor: pointer;
-				font-size: 16px;
-				padding: 8px;
-				margin-right: 1255px;
-				right: 50px;
-				top: 50%;
-				transform: translateY(-50%);
-				width: 36px;
-				height: 36px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				cursor: pointer;
-			}
-			
-			.attach-file-btn:hover {
-				color: #25d366;
-			}
-			
-			.file-preview-container {
-				padding: 10px 15px;
-				background-color: #111b21;
-				border-top: 1px solid #ddd;
-			}
-			
-			.file-preview {
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-			}
-			
-			.preview-content {
-				display: flex;
-				align-items: center;
-				max-width: 90%;
-			}
-			
-			.image-preview {
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-			}
-			
-			.image-preview img {
-				max-height: 100px;
-				max-width: 200px;
-				object-fit: contain;
-				border-radius: 4px;
-			}
-			
-			.doc-preview {
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-			}
-			
-			.file-name {
-				margin-top: 5px;
-				font-size: 12px;
-				color: white;
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				max-width: 150px;
-			}
-			
-			.remove-file-btn {
-				background: transparent;
-				border: none;
-				color: #888;
-				cursor: pointer;
-				padding: 5px;
-			}
-			
-			.remove-file-btn:hover {
-				color: #e74c3c;
-			}
-			
-			.file-sending {
-				font-size: 12px;
-				color: #888;
-				margin-top: 5px;
-			}
-			
-			.error-message {
-				color: #e74c3c;
-			}
-			.chat-messages {
-				flex: 1;
-				overflow-y: auto;
-				padding: 15px;
-				background-color: #111b21;
-				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23444444' fill-opacity='0.1'/%3E%3C/svg%3E");
-			}
-			.message {
-				max-width: 30%;
-				margin-bottom: 5px;
-				border-radius: 7.5px;
-				position: relative;
-				word-wrap: break-word;
-				color: #ffffff;
-				box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
-				line-height: 1.4;
-			}
-			.message.incoming {
-				background-color: #202c33;
-				align-self: flex-start;
-				margin-right: auto !important;
-				padding: 8px 10px 7px;
-				border-top-left-radius: 0;
-			}
-			.message.outgoing {
-				background-color: #005C4B;
-				align-self: flex-end;
-				margin-left: auto;
-				padding: 8px 10px 3px;
-				border-top-right-radius: 0;
-			}
-			.chat-input-container {
-				padding: 10px;
-				background-color: #181d20;
-				display: flex;
-				flex-direction: column;
-				border-top: 1px solid #38424a;
-			}
-			#message-input {
-				resize: none;
-				border-radius: 6px;
-				padding: 9px 12px;
-				height: 45px;
-				border: 1px solid #38424a;
-				color: #ffffff;
-				background-color: #202c33;
-				width: 96.5%;
-				padding-right: 40px;
-				padding-left: 40px;
-			}
-			.btn-primary {
-				background-color: #00a884;
-				border-color: #00a884;
-				color: white;
-			}
-			.btn-default {
-				background-color: #181d20;
-				border-color: #38424a;
-				color: #ffffff;
-			}
-			.message-time {
-				font-size: 11px;
-				color: #8696a0;
-				text-align: right;
-				margin-top: 2px;
-				margin-right: 0px;
-			}
-			.message-status {
-				font-size: 11px;
-				color: #8696a0;
-				margin-left: -5px;
-				margin-right: -5px;
-				margin-bottom: 15px;
-			}
-
-			.new-contact-btn {
-				width: 32px;
-				height: 32px;
-				border-radius: 5px;
-				background-color: transparent;
-				border: None;
-				font-size: 22px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				color: #ffffff;
-				opacity: 0.7;
-			}
-
-			/* Mobile view styles with toggler */
-			@media (max-width: 767px) {
-				.chat-container {
-					position: relative;
-					height: calc(100vh - 170px);
-					overflow: hidden;
-				}
-				
-				.chat-sidebar {
-					width: 100%;
-					height: 100%;
-					position: absolute;
-					top: 0;
-					left: 0;
-					z-index: 10;
-					transform: translateX(0);
-					transition: transform 0.3s ease;
-					visibility: visible;
-					overflow: hidden;
-				}
-				
-				.chat-content {
-					width: 100%;
-					height: 100%;
-					position: absolute;
-					top: 0;
-					left: 0;
-					z-index: 5;
-				}
-				
-				.sidebar-hidden {
-					transform: translateX(-100%);
-					visibility: hidden;
-					width: 0;
-					overflow: hidden;
-				}
-				
-				.back-to-contacts-btn {
-					margin-right: 10px;
-					background-color: transparent;
-					border: none;
-					color: #ffffff;
-					font-size: 20px;
-					cursor: pointer;
-					display: flex;
-					align-items: center;
-					justify-content: center;
-					width: 36px;
-					height: 36px;
-				}
-	
-				.message {
-					max-width: 75%;
-				}
-	
-				#message-input {
-					width: 87%;
-					padding-right: 80px;
-				}
-				
-				.send-icon-btn {
-					margin-top: 0px;
-					margin-right: 4px;
-				}
-	
-				.template-icon-btn {
-					margin-top: 0px;
-				}
-			}
-            
-            /* Fullscreen mobile adjustments */
-            @media (max-width: 767px) {
-                .chat-container.fullscreen {
-                    height: 100vh !important;
-                }
-            }
-			
-
-			/* Light theme styles */
-
-			.light-theme .theme-btn {
-				background-color: transparent;
-				border: none;
-				color: #181D20;
-				font-size: 18px;
-				cursor: pointer;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				width: 36px;
-				height: 36px;
-				margin-right: 10px;
-			}
-
-			.light-theme .theme-btn:hover {
-				color: rgb(94, 173, 156);
-			}
-
-			.light-theme .refresh-btn {
-				background-color: transparent;
-				color: #181D20;
-			}
-			.light-theme .refresh-btn:hover {
-				color: rgb(94, 173, 156);
-			}
-
-			.light-theme .chat-container {
-				background-color: #dadbd3;
-			}
-
-			.light-theme .chat-sidebar {
-				border-right: 1px solid #d1d7db;
-				background-color: #ffffff;
-			}
-
-			.light-theme .chat-search {
-				border-bottom: 1px solid #e0e0e0;
-			}
-
-			.light-theme .chat-search input {
-				background-color: #f0f2f5;
-				color: #333333;
-			}
-
-			.light-theme .new-contact-btn {
-				color: #000000;
-			}
-
-			.light-theme .contact-item {
-				border-bottom: 1px solid #f0f0f0;
-				color: #111b21;
-			}
-
-			.light-theme .contact-item:hover {
-				background-color: #f5f6f6;
-			}
-
-			.light-theme .contact-item.active {
-				background-color: #f0f2f5;
-			}
-
-			.light-theme .contact-name {
-				color: #181D20;
-			}
-
-			.light-theme .template-icon-btn {
-				color: #000000;
-			}
-
-			.light-theme .chat-header {
-				background-color: #f0f2f5;
-				border-bottom: 1px solid #d1d7db;
-				color: #111b21;
-			}
-
-			.light-theme .chat-messages {
-				background-color: #efeae2;
-				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23aaaaaa' fill-opacity='0.1'/%3E%3C/svg%3E");
-			}
-
-			.light-theme .message {
-				color: #111b21;
-				box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
-			}
-
-			.light-theme .message.incoming {
-				background-color: #ffffff;
-			}
-
-			.light-theme .message.outgoing {
-				background-color: #d9fdd3;
-			}
-
-			.light-theme .chat-input-container {
-				background-color: #f0f2f5;
-				border-top: 1px solid #d1d7db;
-			}
-
-			.light-theme #message-input {
-				border: 1px solid #d1d7db;
-				color: #111b21;
-				background-color: #f0f2f5;
-			}
-
-			.light-theme .btn-primary {
-				background-color: #00a884;
-				border-color: #00a884;
-				color: white;
-			}
-
-			.light-theme .btn-default {
-				background-color: #f0f2f5;
-				border-color: #d1d7db;
-				color: #54656f;
-			}
-
-			.light-theme .message-time {
-				color: #667781;
-			}
-
-			.light-theme .message-status {
-				color: #667781;
-			}
-			
-			.light-theme .date-bubble {
-				background-color: white;
-				color: #000000;
-			}
-
-			.light-theme .send-icon-btn {
-				color: #000000;
-			}
-
-			.light-theme .attach-file-btn {
-				color: #000000;
-			}
-		`).appendTo('head');
-
-		
-	}
-	
 	setup_page_layout() {
 		// Create a layout with contacts on left and messages on right
 		this.page.main.html(`
@@ -667,9 +36,6 @@ class WhatsAppChatInterface {
 							<div class="current-contact"></div>
 						</div>
 						<div class="chat-header-right">
-							<button id="theme-toggle" class="theme-btn" title="Toggle theme">
-								<i class="fa fa-moon-o" aria-hidden="true"></i>
-							</button>
 							<button id="refresh-button" class="refresh-btn" title="Refresh chats and contacts">
 								<i class="fa fa-refresh" aria-hidden="true"></i>
 							</button>                            
@@ -705,23 +71,10 @@ class WhatsAppChatInterface {
 			</div>
 		`);
 		
-		this.add_styles();
 		this.setup_events();
 		this.setup_mobile_toggler();
 		this.setup_refresh_button();
 		this.setup_file_upload();
-		
-		// Add event for the fullscreen toggle button in the header
-		$('#fullscreen-toggle').on('click', () => {
-			this.toggle_fullscreen();
-			
-			// Change icon based on fullscreen state
-			if ($('.navbar').is(':visible')) {
-				$('#fullscreen-toggle i').removeClass('fa-compress').addClass('fa-expand');
-			} else {
-				$('#fullscreen-toggle i').removeClass('fa-expand').addClass('fa-compress');
-			}
-		});
 	}
 
 	showContactLoadingSpinner() {
@@ -730,29 +83,17 @@ class WhatsAppChatInterface {
 	  
 	
 	setup_refresh_button() {
-		const self = this;
-		
-		// Add click event for refresh button
+		const self = this;		
 		$('#refresh-button').on('click', function() {
 			self.refresh_all();
 		});
 	}
 	
 	refresh_all() {
-		// Clear all messages in the current chat
-		$('.chat-messages').empty();				
-
-		// Hide the send button if it's visible
+		$('.chat-messages').empty();
 		$('#send-button').hide();
-		this.showContactLoadingSpinner();		
-		
-		// Reload the contact list
-		this.load_contacts();
-
-		// setTimeout(() => {
-		// 	$('.contact-item').first().trigger('click');
-		// }, 90);
-		
+		this.showContactLoadingSpinner();				
+		this.load_contacts();		
 	}
 
 	
@@ -905,11 +246,6 @@ class WhatsAppChatInterface {
 			const contactNumberNoSpaces = contactNumber.replace(/\s+/g, '');
 			
 			// Check all possible combinations:
-			// 1. Normal search in name
-			// 2. Normal search in original number with spaces
-			// 3. No-space search in no-space number
-			// 4. No-space search in original number with spaces
-			// 5. Search with spaces in no-space number
 			if (contactName.includes(searchText) || 
 				contactNumber.includes(searchText) || 
 				contactNumberNoSpaces.includes(searchTextNoSpaces) ||
@@ -1173,38 +509,6 @@ class WhatsAppChatInterface {
 			</div>
 		`);
 		
-		// Add styles for the placeholder
-		if (!$('#no-chat-styles').length) {
-			$('<style id="no-chat-styles">').text(`
-				.no-chat-selected {
-					display: flex;
-					flex-direction: column;
-					align-items: center;
-					justify-content: center;
-					height: 100%;
-					color: #8696a0;
-					text-align: center;
-					padding: 20px;
-				}
-				.no-chat-icon {
-					font-size: 72px;
-					margin-bottom: 20px;
-					color: #00a884;
-					opacity: 0.8;
-				}
-				.no-chat-selected h3 {
-					font-size: 20px;
-					margin-bottom: 10px;
-					color: #d1d7db;
-				}
-				.no-chat-selected p {
-					font-size: 14px;
-					max-width: 450px;
-					color: #8696a0;
-				}
-			`).appendTo('head');
-		}
-		
 		// Hide the message input area until a chat is selected
 		$('.chat-input-container').hide();
 	}
@@ -1221,8 +525,6 @@ class WhatsAppChatInterface {
 			contactList.append(`<div class="text-muted p-4">No contacts found</div>`);
 			return;
 		}
-		
-		console.log(`Rendering ${contacts.length} contacts`);
 		
 		// Sort contacts by last message time (most recent first)
 		contacts.sort((a, b) => {
@@ -1341,85 +643,6 @@ class WhatsAppChatInterface {
 			contactList.append(contactItem);
 		});
 		
-		// Add styles for new contact design
-		if (!$('#contact-custom-styles').length) {
-			$('<style id="contact-custom-styles">').text(`
-				.contact-item {
-					display: flex;
-					align-items: center;
-					padding: 12px 15px;
-					cursor: pointer;
-					border-bottom: 1px solid #1f2c33;
-				}
-				.contact-avatar {
-					width: 40px;
-					height: 40px;
-					border-radius: 50%;
-					background-color: #6A7175;
-					color: white;
-					display: flex;
-					align-items: center;
-					justify-content: center;
-					font-weight: bold;
-					margin-right: 15px;
-					flex-shrink: 0;
-					color: #ffffff;
-				}
-				.contact-info {
-					flex: 1;
-					overflow: hidden;
-				}
-				.contact-header {
-					display: flex;
-					justify-content: space-between;
-					margin-bottom: 3px;
-				}
-				.contact-name {
-					font-weight: 500;
-					color: #ffffff;
-					white-space: nowrap;
-					overflow: hidden;
-					text-overflow: ellipsis;
-				}
-				.contact-time {
-					font-size: 0.75rem;
-					color: #8696a0;
-					white-space: nowrap;
-					margin-left: 10px;
-					flex-shrink: 0;
-				}
-				.contact-message {
-					font-size: 0.85rem;
-					color: #8696a0;
-					white-space: nowrap;
-					overflow: hidden;
-					text-overflow: ellipsis;
-					display: flex;
-					align-items: center;
-				}
-				.contact-search {
-					position: relative;
-					
-				}
-				.contact-search input {
-					width: 100%;
-					padding: 8px 10px;
-					padding-left: 35px;
-					border-radius: 8px;
-					border: 1px solid #d1d7db;
-					background-color: #f0f2f5;
-				}
-				.contact-search:before {
-					content: "🔍";
-					position: absolute;
-					left: 12px;
-					top: 50%;
-					transform: translateY(-50%);
-					color: #8696a0;
-				}
-			`).appendTo('head');
-		}
-		
 		// Event for searching contacts
 		$('#contact-search').on('input', function() { 
 			const searchText = $(this).val().toLowerCase();
@@ -1446,11 +669,6 @@ class WhatsAppChatInterface {
 			}
 			});
 		});
-
-		// Select the first contact by default
-		// if (contacts.length > 0) {
-		// 	$('.contact-item').first().trigger('click');
-		// }
 	}
 	
 		
@@ -1562,20 +780,8 @@ class WhatsAppChatInterface {
 							<p>Start a conversation by sending a message below!</p>
 						</div>
 					`);
-					
-					// Add styles for empty chat
-					if (!$('#empty-chat-styles').length) {
-						$('<style id="empty-chat-styles">').text(`
-							.empty-chat-icon {
-								font-size: 48px;
-								color: #00a884;
-								opacity: 0.7;
-							}
-						`).appendTo('head');
-					}
 				}
 			}).catch(err => {
-				console.error("❌ Failed to load messages:", err);
 				frappe.msgprint({
 					title: __("Error"),
 					message: __("Failed to load messages. Please check console for details."),
@@ -1583,7 +789,6 @@ class WhatsAppChatInterface {
 				});
 			});
 		}).catch(err => {
-			console.error("❌ Failed to fetch contact name:", err);
 			// Fallback: Update the header with only the formatted phone number
 			$('.current-contact').html(`
 				<strong>Unknown</strong><br>
@@ -1812,137 +1017,6 @@ class WhatsAppChatInterface {
 				$('.message-dropdown').removeClass('active');
 			}
 		});
-	
-		// Add style for date separators, dropdown menu, and reactions
-		if (!$('#message-dropdown-styles').length) {
-			$('<style id="message-dropdown-styles">').text(`
-				.date-separator {
-					text-align: center;
-					margin: 10px 0;
-					position: relative;
-				}
-				.date-bubble {
-					background-color: #1f2c33;
-					color: #8696a0;
-					font-size: 0.75rem;
-					padding: 5px 10px;
-					border-radius: 8px;
-					display: inline-block;
-					text-transform: uppercase;
-				}
-	
-				/* Dropdown styles */
-				.message-dropdown {
-					position: absolute;
-					top: 5px;
-					right: 5px;
-					opacity: 0;
-					transition: opacity 0.2s;
-					z-index: 10;
-				}
-				.message:hover .message-dropdown {
-					opacity: 1;
-				}
-				.message-dropdown.active .message-dropdown-toggle {
-					color: white; /* Change color when active */
-				}
-				.message-dropdown-toggle {
-					color: #8696a0;
-					cursor: pointer;
-					padding: 4px 6px;
-					font-size: 12px;
-					background-color: rgba(35, 45, 54, 1); /* Semi-transparent background */
-					border-radius: 25%;
-					box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); /* Shadow for visibility */
-					display: inline-flex;
-					justify-content: center;
-					align-items: center;
-					width: 22px;
-					height: 22px;
-				}
-				.message-dropdown-menu {
-					display: none;
-					position: absolute;
-					right: 0;
-					background-color: #233138;
-					border-radius: 6px;
-					min-width: 160px;
-					box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-					z-index: 100;
-				}
-				.message-dropdown-menu.show {
-					display: block;
-				}
-				.message-dropdown-item {
-					padding: 8px 15px;
-					color: #ffffff;
-					cursor: pointer;
-					font-size: 14px;
-					white-space: nowrap; /* Allow wrapping */
-				}
-				.message-dropdown-item:hover {
-					background-color: #202c33;
-					border-radius: 6px;
-				}
-				.message-dropdown-item i {
-					margin-right: 8px;
-					color: #8696a0;
-				}
-				.delete-message:hover i {
-					color: #F15C6D;
-				}
-	
-				/* Adjust message styles for dropdown icon */
-				.message {
-					position: relative;
-					padding-right: 20px;
-				}
-				
-				/* Reaction styles */
-				.message-reactions {
-					display: flex;
-					flex-wrap: wrap;
-					gap: 4px;
-					margin-top: 2px;
-					margin-left: 8px;
-					margin-right: 8px;
-				}
-				
-				.reaction-bubble {
-					font-size: 1rem;
-					background-color: #202c33;
-					padding: 3px 6px;
-					border-radius: 12px;
-					box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-					display: inline-flex;
-					align-items: center;
-					justify-content: center;
-				}
-				
-				.own-reaction {
-					cursor: pointer;
-					position: relative;
-				}
-				
-				.own-reaction:hover {
-					background-color: #293540;
-				}
-				
-				.own-reaction:hover::after {
-					content: 'Delete';
-					position: absolute;
-					top: -20px;
-					left: 50%;
-					transform: translateX(-50%);
-					background-color: #202c33;
-					color: #8696a0;
-					font-size: 0.7rem;
-					padding: 2px 5px;
-					border-radius: 4px;
-					white-space: nowrap;
-				}
-			`).appendTo('head');
-		}
 	
 		// Scroll to bottom
 		setTimeout(() => {
@@ -2227,195 +1301,253 @@ class WhatsAppChatInterface {
 		});
 	}
     
-    send_template() {
+   send_template() {
 		const me = this;
 		
 		// Create a dialog with initial template selection only
 		let dialog = new frappe.ui.Dialog({
-		  title: 'Send Template Message',
-		  fields: [
+		title: 'Send Template Message',
+		fields: [
 			{
-			  label: 'Template',
-			  fieldname: 'template',
-			  fieldtype: 'Link',
-			  options: 'WhatsApp Templates',
-			  reqd: 1,
-			  onchange: function() {
+			label: 'Template',
+			fieldname: 'template',
+			fieldtype: 'Link',
+			options: 'WhatsApp Templates',
+			reqd: 1,
+			onchange: function() {
 				// When template changes, fetch its details
 				if (this.value) {
-				  frappe.call({
-					method: 'frappe.client.get_value',
+				frappe.call({
+					method: 'frappe.client.get',
 					args: {
-					  doctype: 'WhatsApp Templates',
-					  filters: { name: this.value },
-					  fieldname: ['sample_values', 'template_name']
+					doctype: 'WhatsApp Templates',
+					name: this.value
 					},
 					callback: function(r) {
-					  if (r.message && r.message.sample_values) {
-						// Parse sample values to determine how many variables are needed
-						let sampleValues;
-						try {
-						  sampleValues = JSON.parse(r.message.sample_values);
-						} catch (e) {
-						  sampleValues = {};
+					if (r.message) {
+						// Update preview
+						me.updateTemplatePreview(dialog, r.message);
+						
+						// Check if template has variables (look for {{}} patterns)
+						const templateText = r.message.template || '';
+						const variableMatches = templateText.match(/\{\{([^}]+)\}\}/g);
+						
+						if (variableMatches && variableMatches.length > 0) {
+						// Extract variable names from {{variable}} patterns
+						let sampleValues = {};
+						variableMatches.forEach(match => {
+							const variableName = match.replace(/[{}]/g, '');
+							sampleValues[variableName] = `[${variableName}]`; // Default sample value
+						});
+						
+						// If sample_values field exists, try to parse it
+						if (r.message.sample_values) {
+							try {
+							const parsedSampleValues = JSON.parse(r.message.sample_values);
+							sampleValues = { ...sampleValues, ...parsedSampleValues };
+							} catch (e) {
+							// Keep the default sample values if parsing fails
+							}
 						}
 						
 						const variables = Object.keys(sampleValues);
 						
-						// Show doctype and document selection fields
-						dialog.set_df_property('reference_doctype_section', 'hidden', 0);
-						dialog.set_df_property('reference_doctype', 'hidden', 0);
-						dialog.set_df_property('reference_name', 'hidden', 0);
-						dialog.set_df_property('custom_data', 'hidden', 0);
-						
-						// Setup the field mapping child table
-						let field_mapping_fields = [];
-						variables.forEach((variable, index) => {
-						  field_mapping_fields.push({
-							variable: variable,
-							sample_value: sampleValues[variable],
-							docfield: ""
-						  });
-						});
-						
-						dialog.set_value('field_mappings', field_mapping_fields);
-					  } else {
+						if (variables.length > 0) {
+							// Show doctype and document selection fields
+							dialog.set_df_property('reference_doctype_section', 'hidden', 0);
+							dialog.set_df_property('reference_doctype', 'hidden', 0);
+							dialog.set_df_property('reference_name', 'hidden', 0);
+							dialog.set_df_property('custom_data', 'hidden', 0);
+							
+							// Setup the field mapping child table
+							let field_mapping_fields = [];
+							variables.forEach((variable, index) => {
+							field_mapping_fields.push({
+								variable: variable,
+								sample_value: sampleValues[variable],
+								docfield: ""
+							});
+							});
+							
+							dialog.set_value('field_mappings', field_mapping_fields);
+						} else {
+							// Hide document selection fields if no variables
+							dialog.set_df_property('reference_doctype_section', 'hidden', 1);
+							dialog.set_df_property('reference_doctype', 'hidden', 1);
+							dialog.set_df_property('reference_name', 'hidden', 1);
+							dialog.set_df_property('custom_data', 'hidden', 1);
+							dialog.set_df_property('field_mapping_section', 'hidden', 1);
+						}
+						} else {
 						// Hide document selection fields if no sample values
 						dialog.set_df_property('reference_doctype_section', 'hidden', 1);
 						dialog.set_df_property('reference_doctype', 'hidden', 1);
 						dialog.set_df_property('reference_name', 'hidden', 1);
 						dialog.set_df_property('custom_data', 'hidden', 1);
 						dialog.set_df_property('field_mapping_section', 'hidden', 1);
-					  }
+						}
 					}
-				  });
+					}
+				});
+				} else {
+				// Clear preview when no template selected
+				dialog.set_df_property('template_preview', 'options', '');
 				}
-			  }
+			}
 			},
 			{
-			  fieldtype: 'Section Break',
-			  fieldname: 'reference_doctype_section',
-			  label: 'Document Reference',
-			  hidden: 1
+			fieldtype: 'Section Break',
+			fieldname: 'preview_section',
+			label: 'Template Preview'
 			},
 			{
-			  label: 'Select Document Type',
-			  fieldname: 'reference_doctype',
-			  fieldtype: 'Link',
-			  options: 'DocType',
-			  hidden: 1,
-			  onchange: function() {
+			fieldtype: 'HTML',
+			fieldname: 'template_preview',
+			options: '<div style="text-align: center; padding: 20px; color: #8d99a6;">Select a template to see preview</div>'
+			},
+			{
+			fieldtype: 'Section Break',
+			fieldname: 'reference_doctype_section',
+			label: 'Document Reference',
+			hidden: 1
+			},
+			{
+			label: 'Select Document Type',
+			fieldname: 'reference_doctype',
+			fieldtype: 'Link',
+			options: 'DocType',
+			hidden: 1,
+			onchange: function() {
 				if (this.value) {
-				  // Update reference_name to be a link field of the selected doctype
-				  dialog.fields_dict.reference_name.df.options = this.value;
-				  dialog.fields_dict.reference_name.refresh();
-				  
-				  // Get fields of the selected doctype for mapping
-				  frappe.model.with_doctype(this.value, function() {
+				// Update reference_name to be a link field of the selected doctype
+				dialog.fields_dict.reference_name.df.options = this.value;
+				dialog.fields_dict.reference_name.refresh();
+				
+				// Get fields of the selected doctype for mapping
+				frappe.model.with_doctype(this.value, function() {
 					let fields = frappe.meta.get_docfields(dialog.get_value('reference_doctype'), null, {
-					  fieldtype: ['not in', ['Section Break', 'Column Break', 'Tab Break', 'HTML', 'Table', 'Button', 'Image']]
+					fieldtype: ['not in', ['Section Break', 'Column Break', 'Tab Break', 'HTML', 'Table', 'Button', 'Image']]
 					});
 					
 					// Update the docfield options in the field mappings table
 					let docfields = fields.map(f => ({ value: f.fieldname, label: `${f.label || f.fieldname} (${f.fieldtype})` }));
 					
 					dialog.fields_dict.field_mappings.grid.update_docfield_property(
-					  'docfield', 'options', docfields
+					'docfield', 'options', docfields
 					);
 					
 					// Refresh the grid to show updated options
 					dialog.fields_dict.field_mappings.grid.refresh();
-				  });
+				});
 				}
-			  }
+			}
 			},
 			{
-			  label: 'Select Document',
-			  fieldname: 'reference_name',
-			  fieldtype: 'Link',
-			  options: 'reference_doctype',
-			  hidden: 1
+			label: 'Select Document',
+			fieldname: 'reference_name',
+			fieldtype: 'Link',
+			options: 'reference_doctype',
+			hidden: 1,
+			onchange: function() {
+				// Update preview when document changes
+				if (this.value && dialog.get_value('reference_doctype')) {
+				me.updatePreviewWithDocumentData(dialog);
+				}
+			}
 			},
 			{
-			  fieldtype: 'Check',
-			  fieldname: 'custom_data',
-			  label: 'Custom Data',
-			  hidden: 1,
-			  onchange: function () {
+			fieldtype: 'Check',
+			fieldname: 'custom_data',
+			label: 'Custom Data',
+			hidden: 1,
+			onchange: function () {
 				// Use the checkbox's current value (true/false)
 				if (this.get_value()) {
-				  dialog.set_df_property('field_mapping_section', 'hidden', 0); // show
+				dialog.set_df_property('field_mapping_section', 'hidden', 0); // show
 				} else {
-				  dialog.set_df_property('field_mapping_section', 'hidden', 1); // hide
+				dialog.set_df_property('field_mapping_section', 'hidden', 1); // hide
 				}
-			  }
-			},
-			{
-			  fieldtype: 'Section Break',
-			  fieldname: 'field_mapping_section',
-			  label: 'Map Document Fields to Template Variables',
-			  hidden: 1
-			},
-			{
-			  fieldname: 'field_mappings',
-			  fieldtype: 'Table',
-			  hidden: 0,
-			  fields: [
-				{
-				  fieldname: 'docfield',
-				  fieldtype: 'Autocomplete',
-				  label: 'Document Field',
-				  in_list_view: 1,
-				  options: []
-				}
-			  ]
+				// Update preview when custom data setting changes
+				me.updatePreviewWithDocumentData(dialog);
 			}
-		  ],
-		  primary_action_label: 'Send',
-		  primary_action(values) {
+			},
+			{
+			fieldtype: 'Section Break',
+			fieldname: 'field_mapping_section',
+			label: 'Map Document Fields to Template Variables',
+			hidden: 1
+			},
+			{
+			fieldname: 'field_mappings',
+			fieldtype: 'Table',
+			hidden: 0,
+			fields: [
+				{
+				fieldname: 'variable',
+				fieldtype: 'Data',
+				label: 'Template Variable',
+				in_list_view: 1,
+				read_only: 1
+				},
+				{
+				fieldname: 'docfield',
+				fieldtype: 'Autocomplete',
+				label: 'Document Field',
+				in_list_view: 1,
+				options: [],
+				onchange: function() {
+					// Update preview when field mapping changes
+					me.updatePreviewWithDocumentData(dialog);
+				}
+				}
+			]
+			}
+		],
+		primary_action_label: 'Send',
+		primary_action(values) {
 			if (!me.current_contact) return;
 			
 			// Prepare the message doc
 			let msg_doc = {
-			  doctype: 'WhatsApp Message',
-			  type: 'Outgoing',
-			  to: me.current_contact,
-			  use_template: 1,
-			  custom_data: values.custom_data ? 1 : 0,
-			  template: values.template,
-			  content_type: 'text',
-			  message_type: 'Template',
-			  status: 'queued',
-			  reference_doctype: values.reference_doctype || null,
-			  reference_name: values.reference_name || null
+			doctype: 'WhatsApp Message',
+			type: 'Outgoing',
+			to: me.current_contact,
+			use_template: 1,
+			custom_data: values.custom_data ? 1 : 0,
+			template: values.template,
+			content_type: 'text',
+			message_type: 'Template',
+			status: 'queued',
+			reference_doctype: values.reference_doctype || null,
+			reference_name: values.reference_name || null
 			};
 			
 			// Handle parameter building
 			if (values.custom_data && values.reference_doctype && values.reference_name && values.field_mappings) {
-			  frappe.call({
+			frappe.call({
 				method: 'frappe.client.get',
 				args: {
-				  doctype: values.reference_doctype,
-				  name: values.reference_name
+				doctype: values.reference_doctype,
+				name: values.reference_name
 				},
 				callback: function(r) {
-				  if (r.message) {
+				if (r.message) {
 					const doc = r.message;
 					let parameters = {};
 					let fields = [];
 					
 					// Construct parameters from field mappings and prepare fields table data
 					(values.field_mappings || []).forEach(mapping => {
-					  if (mapping.docfield && mapping.variable) {
+					if (mapping.docfield && mapping.variable) {
 						parameters[mapping.variable] = doc[mapping.docfield] || '';
 						
 						// Add to fields table
 						fields.push({
-						  variable: mapping.variable,
-						  field_name: mapping.docfield,
-						  value: doc[mapping.docfield] || ''
+						variable: mapping.variable,
+						field_name: mapping.docfield,
+						value: doc[mapping.docfield] || ''
 						});
-					  }
+					}
 					});
 					
 					msg_doc.template_parameters = JSON.stringify(parameters);
@@ -2423,205 +1555,172 @@ class WhatsAppChatInterface {
 					
 					// Insert the message doc
 					frappe.call({
-					  method: 'frappe.client.insert',
-					  args: { doc: msg_doc },
-					  callback: function(r) {
+					method: 'frappe.client.insert',
+					args: { doc: msg_doc },
+					callback: function(r) {
 						if (r.message) {
-						  me.load_messages(me.current_contact);
-						  frappe.show_alert({
+						me.load_messages(me.current_contact);
+						frappe.show_alert({
 							message: __('Template message queued for sending'),
 							indicator: 'green'
-						  });
+						});
 						}
-					  }
+					}
 					});
-				  }
 				}
-			  });
+				}
+			});
 			} else {
-			  // Simple template with no custom data
-			  msg_doc.template_parameters = '{}';
-			  
-			  frappe.call({
+			// Simple template with no custom data
+			msg_doc.template_parameters = '{}';
+			
+			frappe.call({
 				method: 'frappe.client.insert',
 				args: { doc: msg_doc },
 				callback: function(r) {
-				  if (r.message) {
+				if (r.message) {
 					me.load_messages(me.current_contact);
 					frappe.show_alert({
-					  message: __('Template message queued for sending'),
-					  indicator: 'green'
+					message: __('Template message queued for sending'),
+					indicator: 'green'
 					});
-				  }
 				}
-			  });
+				}
+			});
 			}
 			
 			dialog.hide();
-		  }
+		}
 		});
 		
 		dialog.show();
-	  }
+	}
+
+	// Add these helper methods to your WhatsAppChatInterface class
+	updateTemplatePreview(dialog, templateData) {
+		const previewHtml = this.generateTemplatePreview(templateData);
+		dialog.set_df_property('template_preview', 'options', previewHtml);
+	}
+
+	// Alternative approach: Update the generateTemplatePreview method to handle newlines properly
+generateTemplatePreview(templateData) {
+    const headerText = templateData.header || '';
+    const bodyText = templateData.template || templateData.body || '';
+    const footerText = templateData.footer || '';
+    
+    let previewHtml = `
+        <div style="text-align: center; padding: 10px 0;">
+            <div style="
+                display: inline-block;
+                border-radius: 8px; 
+                padding: 12px 16px; 
+                background: #005C4B;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                max-width: 280px;
+                text-align: left;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            ">
+    `;
+    
+    // Add header if exists
+    if (headerText) {
+        previewHtml += `
+            <div style="
+                font-weight: 600; 
+                margin-bottom: 6px; 
+                color:rgb(221, 221, 221);
+                font-size: 14px;
+            ">
+                ${this.escapeHtml(headerText)}
+            </div>
+        `;
+    }
+    
+    // Add body/template content - remove white-space: pre-wrap since we're using <br> tags
+    if (bodyText) {
+        previewHtml += `
+            <div style="
+                line-height: 1.4; 
+                color: #ffffff;
+                font-size: 14px;
+                margin-bottom: ${footerText ? '8px' : '0'};
+            ">
+                ${this.escapeHtml(bodyText)}
+            </div>
+        `;
+    }
+    
+    // Add footer if exists
+    if (footerText) {
+        previewHtml += `
+            <div style="
+                font-size: 12px; 
+                color: rgb(221, 221, 221);
+            ">
+                ${this.escapeHtml(footerText)}
+            </div>
+        `;
+    }
+    
+    previewHtml += `
+            </div>
+        </div>
+    `;
+    
+    return previewHtml;
 }
 
+	updatePreviewWithDocumentData(dialog) {
+		const templateName = dialog.get_value('template');
+		
+		if (!templateName) {
+			return;
+		}
+		
+		// Get template data and show simple preview
+		frappe.call({
+			method: 'frappe.client.get',
+			args: {
+				doctype: 'WhatsApp Templates',
+				name: templateName
+			},
+			callback: (templateResponse) => {
+				if (templateResponse.message) {
+					const templateData = templateResponse.message;
+					this.updateTemplatePreview(dialog, templateData);
+				}
+			}
+		});
+	}
 
-
-
-
-
-
-
-
-	    // add_styles() {
-    //     // Add CSS for the chat interface
-    //     $('<style>').text(`
-	// 		.chat-container {
-	// 			display: flex;
-	// 			height: calc(100vh - 170px);
-	// 			background-color: #dadbd3; /* WhatsApp light gray background */
-	// 		}
-	// 		.chat-sidebar {
-	// 			width: 30%;
-	// 			border-right: 1px solid #d1d7db;
-	// 			display: flex;
-	// 			flex-direction: column;
-	// 			background-color: #ffffff;
-	// 		}
-	// 		.chat-search {
-	// 			padding: 10px;
-	// 			border-bottom: 1px solid #e0e0e0;
-	// 		}
-	// 		.chat-search input {
-	// 			background-color: #f0f2f5;
-	// 			border-radius: 18px;
-	// 			border: none;
-	// 			padding: 8px 12px;
-	// 			color: #333333; /* Darker text for better readability */
-	// 			width: 100%;
-	// 		}
-	// 		.contact-list {
-	// 			flex: 1;
-	// 			overflow-y: auto;
-	// 		}
-	// 		.contact-item {
-	// 			padding: 12px 15px;
-	// 			border-bottom: 1px solid #f0f0f0;
-	// 			cursor: pointer;
-	// 			color: #111b21; /* WhatsApp dark text */
-	// 			font-weight: 400;
-	// 		}
-	// 		.contact-item:hover {
-	// 			background-color: #f5f6f6;
-	// 		}
-	// 		.contact-item.active {
-	// 			background-color: #f0f2f5;
-	// 		}
-	// 		.chat-content {
-	// 			width: 70%;
-	// 			display: flex;
-	// 			flex-direction: column;
-	// 		}
-	// 		.chat-header {
-	// 			padding: 10px 15px;
-	// 			background-color: #f0f2f5;
-	// 			border-bottom: 1px solid #d1d7db;
-	// 			color: #111b21; /* WhatsApp dark text */
-	// 		}
-	// 		.chat-messages {
-	// 			flex: 1;
-	// 			overflow-y: auto;
-	// 			padding: 15px;
-	// 			background-color: #efeae2; /* WhatsApp chat background */
-	// 			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23aaaaaa' fill-opacity='0.1'/%3E%3C/svg%3E");
-	// 		}
-	// 		.message {
-	// 			max-width: 30%;
-	// 			padding: 8px 12px;
-	// 			margin-bottom: 10px;
-	// 			border-radius: 7.5px;
-	// 			position: relative;
-	// 			word-wrap: break-word;
-	// 			color: #111b21; /* WhatsApp dark text */
-	// 			box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
-	// 			line-height: 1.4;
-	// 		}
-	// 		.message.incoming {
-	// 			background-color: #ffffff;
-	// 			align-self: flex-start;
-	// 			margin-right: auto;
-	// 			border-top-left-radius: 0;
-	// 		}
-	// 		.message.outgoing {
-	// 			background-color: #d9fdd3; /* WhatsApp green message bubble */
-	// 			align-self: flex-end;
-	// 			margin-left: auto;
-	// 			border-top-right-radius: 0;
-	// 		}
-	// 		.chat-input-container {
-	// 			padding: 10px;
-	// 			background-color: #f0f2f5;
-	// 			display: flex;
-	// 			flex-direction: column;
-	// 			border-top: 1px solid #d1d7db;
-	// 		}
-	// 		#message-input {
-	// 			resize: none;
-	// 			border-radius: 20px;
-	// 			padding: 9px 12px;
-	// 			margin-bottom: 10px;
-	// 			height: 45px;
-	// 			border: 1px solid #d1d7db;
-	// 			color: #111b21; /* WhatsApp dark text */
-	// 			background-color: #f0f2f5;
-	// 		}
-	// 		.chat-actions {
-	// 			display: flex;
-	// 			justify-content: space-between;
-	// 		}
-	// 		.btn-primary {
-	// 			background-color: #00a884; /* WhatsApp green */
-	// 			border-color: #00a884;
-	// 			color: white;
-	// 		}
-	// 		.btn-default {
-	// 			background-color: #f0f2f5;
-	// 			border-color: #d1d7db;
-	// 			color: #54656f;
-	// 		}
-	// 		.message-time {
-	// 			font-size: 11px;
-	// 			color: #667781; /* WhatsApp time text color */
-	// 			text-align: right;
-	// 			margin-top: 2px;
-	// 		}
-	// 		.message-status {
-	// 			font-size: 11px;
-	// 			color: #667781; /* WhatsApp status text color */
-	// 			margin-left: 5px;
-	// 		}
-
-	// 		@media (max-width: 767px) {
-	// 			.chat-container {
-	// 				flex-direction: column;
-	// 			}
-				
-	// 			.chat-sidebar {
-	// 				width: 100%;
-	// 				height: 30%;
-	// 			}
-				
-	// 			.chat-content {
-	// 				width: 100%;
-	// 				height: 70%;
-	// 			}
-
-	// 			.message {
-	// 				max-width: 75%;
-	// 			}
-	// 		}
-    //     `).appendTo('head');
-    // }
-
-
-	
+	// Updated helper method to preserve newlines and handle WhatsApp markdown
+escapeHtml(text) {
+    if (!text) return '';
+    
+    // First escape HTML characters
+    let escapedText = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    
+    // Convert WhatsApp markdown to HTML
+    // Bold: *text* -> <strong>text</strong>
+    escapedText = escapedText.replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
+    
+    // Italic: _text_ -> <em>text</em>
+    escapedText = escapedText.replace(/_([^_]+)_/g, '<em>$1</em>');
+    
+    // Strikethrough: ~text~ -> <del>text</del>
+    escapedText = escapedText.replace(/~([^~]+)~/g, '<del>$1</del>');
+    
+    // Monospace: ```text``` -> <code>text</code>
+    escapedText = escapedText.replace(/```([^`]+)```/g, '<code style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 3px;">$1</code>');
+    
+    // Convert newlines to <br> tags
+    escapedText = escapedText.replace(/\n/g, '<br>');
+    
+    return escapedText;
+}
+}
