@@ -18,12 +18,27 @@ class WhatsAppChatInterface {
 	setup_page_layout() {
 		// Create a layout with contacts on left and messages on right
 		this.page.main.html(`
-			<div class="chat-container">
-				<div class="chat-sidebar">
-					<div class="chat-search">
-						<input type="text" id="contact-search" placeholder="🔍︎   Search">
-						<button class="new-contact-btn" title="New chat"><i class="fa fa-plus" aria-hidden="true"></i></button>
-					</div>
+    <div class="chat-container">
+        <div class="chat-sidebar">
+            <div class="chat-search">
+                <input type="text" id="contact-search" placeholder="Find Contact or Number">
+                <div style="display: inline-block;">
+                    <button class="wc-dropdown" id="newDropdown" data-toggle="dropdown">
+                        <i class="fa fa-comments-o" style=""></i>
+                    </button>
+                    <div class="dropdown-menu" aria-labelledby="newDropdown">
+                        <a class="dropdown-item new-contact-btn" href="#">
+                            <i class="fa fa-user-plus" style="margin-right: 10px;"></i>
+                            New Contact
+                        </a>
+                        <a class="dropdown-item bulk-message-btn" href="#">
+                            <i class="fa fa-users" style="margin-right: 10px;"></i>
+                            Bulk Message
+                        </a>
+                    </div>
+                </div>
+            </div>
+
 					<div class="contact-list"></div>
 				</div>
 				<div class="chat-content">
@@ -185,8 +200,17 @@ class WhatsAppChatInterface {
 				</div>
 			  `);
 			  
-			  $('.contact-list').prepend(contactItem);
-			  
+			  	$('.contact-list').prepend(contactItem);
+
+				$(document).on('click', '.new-contact-btn', (e) => {
+					e.preventDefault();
+					this.show_new_contact_dialog();
+				});
+				$(document).on('click', '.bulk-message-btn', (e) => {
+					e.preventDefault();
+					this.show_bulk_message_dialog();
+				});
+
 			  // Activate the new contact
 			  $('.contact-item').removeClass('active');
 			  contactItem.addClass('active');
@@ -209,6 +233,9 @@ class WhatsAppChatInterface {
     setup_events() {
 		const messageInput = document.getElementById('message-input');
 		const sendButton = document.getElementById('send-button');
+		$('.bulk-message-btn').on('click', () => {
+			this.show_bulk_message_dialog();
+		});
 	
 		// Initially hide the message input container until a chat is selected
 		$('.chat-input-container').hide();
@@ -611,28 +638,28 @@ class WhatsAppChatInterface {
 
 			const contactItem = $(`
 				<div class="contact-item" data-number="${contact.number}">
-				<div class="contact-avatar">
-					${contact.name && contact.name.charAt(0) !== '+' 
-					? contact.name.charAt(0).toUpperCase() 
-					: 'U'}
-				</div>
-				<div class="contact-info">
-					<div class="contact-header">
-					${contact.name === "Unknown" 
-						? `<div class="contact-number">${formatPhoneNumber(contact.number)}</div>`
-						: `<div class="contact-name">${contact.name}</div>`
-					}
-					<div class="contact-time">
-						${contact.lastMessage ? formatLastMessageTime(contact.lastMessage.creation) : ''}
+					<div class="contact-avatar">
+						${contact.name && contact.name.charAt(0) !== '+' 
+							? contact.name.charAt(0).toUpperCase() 
+							: 'U'}
 					</div>
+					<div class="contact-info">
+						<div class="contact-header">
+							<div class="contact-name">${contact.name === "Unknown" ? formatPhoneNumber(contact.number) : contact.name}</div>
+							<div class="contact-number" style="display:none;">
+								${formatPhoneNumber(contact.number)}
+							</div>
+							<div class="contact-time">
+								${contact.lastMessage ? formatLastMessageTime(contact.lastMessage.creation) : ''}
+							</div>
+						</div>
+						<div class="contact-message">
+							${getMessagePreview(contact.lastMessage)}
+						</div>
 					</div>
-					<div class="contact-message">
-					${getMessagePreview(contact.lastMessage)}
-					</div>
-				</div>
 				</div>
 			`);
-				  
+							
 			
 			contactItem.on('click', function() {
 				$('.contact-item').removeClass('active');
@@ -946,18 +973,55 @@ class WhatsAppChatInterface {
 					</div>
 				</div>
 			`);
-	
+
+			// Add right-click handler to open dropdown
+			messageItem.on('contextmenu', function(e) {
+    // Only open if right-click is not on a link or selectable element
+    if ($(e.target).closest('.message-dropdown-menu, a, input, textarea, button').length) return;
+
+    e.preventDefault();
+    e.stopPropagation(); // Prevent document contextmenu from firing
+
+    // Close all other dropdowns
+    $('.message-dropdown-menu').removeClass('show').css({top: '', left: '', position: ''});
+    $('.message-dropdown').removeClass('active');
+
+    // Find the dropdown menu for this message
+    const dropdown = $(this).find('.message-dropdown');
+    const menu = dropdown.find('.message-dropdown-menu');
+
+    // Show and position the menu at mouse location (viewport)
+    dropdown.addClass('active');
+    menu.addClass('show');
+
+    // Use viewport coordinates for absolute positioning
+    menu.css({
+        position: 'fixed',
+        left: e.clientX + 'px',
+        top: e.clientY + 'px',
+        minWidth: '160px',
+        zIndex: 9999
+    });
+});
+
 			// Add click handler for dropdown toggle
 			messageItem.find('.message-dropdown-toggle').on('click', function(e) {
 				e.stopPropagation();
-				
+
 				// Close all other open dropdown menus first
-				$('.message-dropdown-menu').not($(this).siblings('.message-dropdown-menu')).removeClass('show');
+				$('.message-dropdown-menu').not($(this).siblings('.message-dropdown-menu')).removeClass('show').css({top: '', left: '', position: ''});
 				$('.message-dropdown').not($(this).parent()).removeClass('active');
-				
+
 				// Toggle this dropdown menu
-				$(this).siblings('.message-dropdown-menu').toggleClass('show');
-				$(this).parent('.message-dropdown').toggleClass('active');
+				const menu = $(this).siblings('.message-dropdown-menu');
+				const parent = $(this).parent('.message-dropdown');
+				menu.toggleClass('show');
+				parent.toggleClass('active');
+
+				// Reset menu position to default (relative to parent)
+				if (menu.hasClass('show')) {
+					menu.css({position: '', left: '', top: '', minWidth: '', zIndex: ''});
+				}
 			});
 	
 			// Add click handler for delete message option
@@ -977,6 +1041,7 @@ class WhatsAppChatInterface {
 					frappe.throw("Error: Could not delete message. Message ID not found.");
 				}
 			});
+			
 	
 			// Add reactions to this message if there are any
 			if (msg.message_id && reactionMessages[msg.message_id] && reactionMessages[msg.message_id].length > 0) {
@@ -1011,9 +1076,16 @@ class WhatsAppChatInterface {
 	
 		// Close dropdowns when clicking elsewhere
 		$(document).on('click', function(e) {
-			// Only close dropdowns if the click is outside the dropdown
 			if ($(e.target).closest('.message-dropdown').length === 0) {
-				$('.message-dropdown-menu').removeClass('show');
+				$('.message-dropdown-menu').removeClass('show').css({top: '', left: '', position: ''});
+				$('.message-dropdown').removeClass('active');
+			}
+		});
+
+		// Close dropdowns when right-clicking elsewhere
+		$(document).on('contextmenu', function(e) {
+			if ($(e.target).closest('.message-dropdown').length === 0) {
+				$('.message-dropdown-menu').removeClass('show').css({top: '', left: '', position: ''});
 				$('.message-dropdown').removeClass('active');
 			}
 		});
@@ -1047,6 +1119,8 @@ class WhatsAppChatInterface {
 				return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 			}
 		}
+
+		
 	}
 	
 	// Make sure this method is included in your WhatsAppChatInterface class
@@ -1723,4 +1797,164 @@ escapeHtml(text) {
     
     return escapedText;
 }
+	show_bulk_message_dialog() {
+		const me = this;
+		let dialog = new frappe.ui.Dialog({
+			title: 'Send Bulk WhatsApp Message',
+			fields: [
+				{
+					label: 'Title',
+					fieldname: 'title',
+					fieldtype: 'Data',
+					reqd: 1
+				},
+				{
+					label: 'Recipient Type',
+					fieldname: 'recipient_type',
+					fieldtype: 'Select',
+					options: ['Individual', 'Group'],
+					reqd: 1,
+					default: 'Individual',
+					onchange: function() {
+						const val = dialog.get_value('recipient_type');
+						dialog.set_df_property('mobile_numbers', 'hidden', val !== 'Individual');
+						dialog.set_df_property('recipient_list', 'hidden', val !== 'Group');
+					}
+				},
+				{
+					label: 'Mobile Numbers (one per line, with country code)',
+					fieldname: 'mobile_numbers',
+					fieldtype: 'Text',
+					reqd: 1,
+					description: 'Example:\n+919512345678\n+919876543210',
+					hidden: 0
+				},
+				{
+					label: 'Recipient List',
+					fieldname: 'recipient_list',
+					fieldtype: 'Link',
+					options: 'WhatsApp Recipient List', // <-- Corrected doctype name
+					hidden: 1
+				},
+				{
+					label: 'Use Template',
+					fieldname: 'use_template',
+					fieldtype: 'Check',
+					default: 1
+				},
+				{
+					label: 'Message',
+					fieldname: 'message',
+					fieldtype: 'Text',
+					depends_on: 'eval:!doc.use_template'
+				},
+				{
+					label: 'Template',
+					fieldname: 'template',
+					fieldtype: 'Link',
+					options: 'WhatsApp Templates',
+					depends_on: 'use_template'
+				}
+			],
+			primary_action_label: 'Send',
+			primary_action(values) {
+				if (!values.title) {
+					frappe.msgprint('Please enter a Title.');
+					return;
+				}
+				if (values.recipient_type === 'Individual') {
+					if (!values.mobile_numbers) {
+						frappe.msgprint('Please enter at least one mobile number.');
+						return;
+					}
+					var numbers = values.mobile_numbers.split('\n').map(n => n.trim()).filter(Boolean);
+					if (!numbers.length) {
+						frappe.msgprint('Please enter valid mobile numbers.');
+						return;
+					}
+					frappe.call({
+						method: 'frappe.client.insert',
+						args: {
+							doc: {
+								doctype: 'Bulk WhatsApp Message',
+								title: values.title,
+								recipient_type: values.recipient_type,
+								use_template: values.use_template ? 1 : 0,
+								message: values.message || '',
+								template: values.template || '',
+								recipients: numbers.map(num => ({
+									doctype: 'WhatsApp Recipient',
+									mobile_number: num
+								}))
+							}
+						},
+						callback: function(r) {
+							if (r.message && r.message.name) {
+								// Fetch the full doc before submitting
+								frappe.call({
+									method: 'frappe.client.get',
+									args: {
+										doctype: 'Bulk WhatsApp Message',
+										name: r.message.name
+									},
+									callback: function(get_res) {
+										if (get_res.message) {
+											frappe.call({
+												method: 'frappe.client.submit',
+												args: {
+													doc: get_res.message
+												},
+												callback: function() {
+													frappe.show_alert('Bulk WhatsApp Message queued for sending');
+													dialog.hide();
+												}
+											});
+										}
+									}
+								});
+							}
+						}
+										});
+				} else if (values.recipient_type === 'Group') {
+					if (!values.recipient_list) {
+						frappe.msgprint('Please select a Recipient List.');
+						return;
+					}
+					frappe.call({
+						method: 'frappe.client.insert',
+						args: {
+							doc: {
+								doctype: 'Bulk WhatsApp Message',
+								title: values.title,
+								recipient_type: values.recipient_type,
+								use_template: values.use_template ? 1 : 0,
+								message: values.message || '',
+								template: values.template || '',
+								recipient_list: values.recipient_list
+							}
+						},
+						callback: function(r) {
+							if (r.message && r.message.name) {
+								// Auto-submit after insert
+								frappe.call({
+									method: 'frappe.client.submit',
+									args: {
+										doctype: 'Bulk WhatsApp Message',
+										name: r.message.name
+									},
+									callback: function() {
+										frappe.show_alert('Bulk WhatsApp Message queued for sending');
+										dialog.hide();
+									}
+								});
+							}
+						}
+					});
+				}
+			}
+		});
+		dialog.set_df_property('mobile_numbers', 'hidden', 0);
+		dialog.set_df_property('recipient_list', 'hidden', 1);
+		dialog.show();
+	}
 }
