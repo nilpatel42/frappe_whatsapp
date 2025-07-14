@@ -235,6 +235,15 @@ def fetch():
             doc.category = template["category"]
             doc.id = template["id"]
 
+            # if document exists update else insert
+            # used db_update and db_insert to ignore hooks
+            if flags:
+                doc.db_update()
+            else:
+                doc.db_insert()
+            frappe.db.commit()
+
+            # Now delete existing buttons and add new ones
             frappe.db.sql(f"""
                 DELETE FROM `tabWhatsApp Template Button`
                 WHERE parent = %(parent)s AND parentfield = 'buttons'
@@ -281,20 +290,29 @@ def fetch():
                             "phone_number": button.get("phone_number", "")
                         })
 
-            # if document exists update else insert
-            # used db_update and db_insert to ignore hooks
-            if flags:
-                doc.db_update()
-            else:
-                doc.db_insert()
+            # Update the document again after processing all components
+            doc.db_update()
             frappe.db.commit()
 
     except Exception as e:
-        res = frappe.flags.integration_request.json()["error"]
-        error_message = res.get("error_user_msg", res.get("message"))
+        # Enhanced error handling
+        error_message = str(e)
+        error_title = "Error"
+        
+        # Check if it's an integration request error
+        if hasattr(frappe.flags, 'integration_request') and frappe.flags.integration_request:
+            try:
+                res = frappe.flags.integration_request.json()
+                if "error" in res:
+                    error_message = res["error"].get("error_user_msg", res["error"].get("message", str(e)))
+                    error_title = res["error"].get("error_user_title", "Error")
+            except (AttributeError, KeyError, TypeError):
+                # If we can't parse the integration request, use the original error
+                pass
+        
         frappe.throw(
             msg=error_message,
-            title=res.get("error_user_title", "Error"),
+            title=error_title,
         )
 
     return "Successfully fetched templates from meta"
