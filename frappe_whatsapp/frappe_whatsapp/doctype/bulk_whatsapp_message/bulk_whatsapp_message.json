@@ -8,6 +8,7 @@
  "field_order": [
   "title",
   "from_number",
+  "column_break_ruvs",
   "section_recipients",
   "recipient_type",
   "recipients",
@@ -17,6 +18,7 @@
   "use_template",
   "template",
   "template_variables",
+  "attach",
   "section_status",
   "status",
   "sent_count",
@@ -108,7 +110,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Draft\nQueued\nIn Progress\nCompleted\nPartially Failed",
+   "options": "Draft\nQueued\nIn Progress\nCompleted\nPartially Failed\nFailed\nCancelled",
    "read_only": 1
   },
   {
@@ -132,12 +134,21 @@
    "options": "Bulk WhatsApp Message",
    "print_hide": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "attach",
+   "fieldtype": "Attach",
+   "label": "Attach"
+  },
+  {
+   "fieldname": "column_break_ruvs",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-03-03 11:28:42.295568",
+ "modified": "2025-07-15 17:10:20.425886",
  "modified_by": "Administrator",
  "module": "Frappe Whatsapp",
  "name": "Bulk WhatsApp Message",
@@ -173,6 +184,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

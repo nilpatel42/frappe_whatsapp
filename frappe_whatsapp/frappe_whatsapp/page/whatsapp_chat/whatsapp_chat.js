@@ -831,7 +831,7 @@ class WhatsAppChatInterface {
 		const me = this; // Make sure 'this' reference is stored properly
 		const messagesContainer = $('.chat-messages');
 		messagesContainer.empty();
-	
+
 		let currentDate = null;
 		
 		// First pass: separate regular messages and reactions
@@ -861,20 +861,20 @@ class WhatsAppChatInterface {
 		regularMessages.forEach((msg, index) => {
 			const messageDate = new Date(msg.creation);
 			const formattedDate = formatMessageDate(messageDate);
-	
+
 			// Add date separator if this is a new date
 			if (formattedDate !== currentDate) {
 				currentDate = formattedDate;
-	
+
 				const dateSeparator = $(`
 					<div class="date-separator">
 						<div class="date-bubble">${currentDate}</div>
 					</div>
 				`);
-	
+
 				messagesContainer.append(dateSeparator);
 			}
-	
+
 			let isOutgoing = msg.to == phoneNumber;
 			let messageClass = isOutgoing ? 'outgoing' : 'incoming';
 			let messageContent = msg.message || '';
@@ -891,11 +891,69 @@ class WhatsAppChatInterface {
 			
 			// 1. Append media (image/file) first
 			if (msg.attach) {
-				if (msg.content_type === 'image') {
-					wrappedTemplate += `<div><img src="${msg.attach}" style="max-width: 100%; height: auto; margin-bottom: 5px;" /></div>`;
+				// Check if it's an image by file extension OR content_type
+				const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+				const isImageFile = imageExtensions.some(ext => 
+					msg.attach.toLowerCase().includes(ext.toLowerCase())
+				);
+				
+				// Process attachment URL
+				let attachmentUrl;
+				if (msg.attach.startsWith('/')) {
+					attachmentUrl = window.location.origin + msg.attach;
+				} else if (msg.attach.startsWith('http')) {
+					attachmentUrl = msg.attach;
+				} else {
+					attachmentUrl = window.location.origin + '/' + msg.attach;
+				}
+				
+				if (isImageFile || msg.content_type === 'image') {
+					wrappedTemplate += `
+						<div class="message-image-container" style="
+							position: relative;
+							width: 100%;
+							margin-bottom: ${formattedMessage.trim() !== '' ? '8px' : '0'};
+							border-radius: 8px;
+							overflow: hidden;
+							background: #f0f0f0;
+							cursor: pointer;
+							border: 1px solid #ddd;
+						">
+							<img 
+								src="${attachmentUrl}" 
+								class="message-image"
+								style="
+									width: 100%;
+									height: auto;
+									max-height: 300px;
+									object-fit: cover;
+									display: block;
+									border-radius: 8px;
+									transition: opacity 0.3s ease;
+								"
+								onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+							/>
+							<div class="image-error-placeholder" style="
+								display: none;
+								align-items: center;
+								justify-content: center;
+								height: 120px;
+								background: #e0e0e0;
+								color: #666;
+								font-size: 14px;
+								text-align: center;
+								border-radius: 8px;
+							">
+								<div>
+									<i class="fa fa-image" style="font-size: 24px; margin-bottom: 8px; display: block;"></i>
+									Image unavailable
+								</div>
+							</div>
+						</div>
+					`;
 				} else if (['document', 'audio', 'video'].includes(msg.content_type)) {
 					wrappedTemplate += `<div style="margin-bottom: 5px;">
-						<a href="${msg.attach}" target="_blank" style="color: #53BDEB;">
+						<a href="${attachmentUrl}" target="_blank" style="color: #53BDEB;">
 							Click Here to Open ${msg.content_type}
 						</a>
 					</div>`;
@@ -907,7 +965,7 @@ class WhatsAppChatInterface {
 				wrappedTemplate += `<div style="white-space: pre-wrap;">${formattedMessage}</div>`;
 			}
 			
-	
+
 			(function loadFontAwesome() {
 				if (!document.getElementById('font-awesome')) {
 					const link = document.createElement('link');
@@ -917,7 +975,7 @@ class WhatsAppChatInterface {
 					document.head.appendChild(link);
 				}
 			})();
-	
+
 			const getMessageStatusIcon = (status) => {
 				if (status === 'sent') {
 					return `
@@ -947,12 +1005,12 @@ class WhatsAppChatInterface {
 				}
 				return '';
 			};
-	
+
 			// Format time in 12-hour format (WhatsApp style)
 			const formatTime = (date) => {
 				return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 			};
-	
+
 			// Create the message item with dropdown menu
 			const messageItem = $(`
 				<div class="message ${messageClass}" data-name="${msg.name}">
@@ -974,35 +1032,44 @@ class WhatsAppChatInterface {
 				</div>
 			`);
 
+			// Add image click handler for opening image viewer
+			messageItem.find('.message-image-container').on('click', function(e) {
+				e.stopPropagation();
+				const imgSrc = $(this).find('img').attr('src');
+				if (imgSrc && me.openImageViewer) {
+					me.openImageViewer(imgSrc);
+				}
+			});
+
 			// Add right-click handler to open dropdown
 			messageItem.on('contextmenu', function(e) {
-    // Only open if right-click is not on a link or selectable element
-    if ($(e.target).closest('.message-dropdown-menu, a, input, textarea, button').length) return;
+				// Only open if right-click is not on a link or selectable element
+				if ($(e.target).closest('.message-dropdown-menu, a, input, textarea, button').length) return;
 
-    e.preventDefault();
-    e.stopPropagation(); // Prevent document contextmenu from firing
+				e.preventDefault();
+				e.stopPropagation(); // Prevent document contextmenu from firing
 
-    // Close all other dropdowns
-    $('.message-dropdown-menu').removeClass('show').css({top: '', left: '', position: ''});
-    $('.message-dropdown').removeClass('active');
+				// Close all other dropdowns
+				$('.message-dropdown-menu').removeClass('show').css({top: '', left: '', position: ''});
+				$('.message-dropdown').removeClass('active');
 
-    // Find the dropdown menu for this message
-    const dropdown = $(this).find('.message-dropdown');
-    const menu = dropdown.find('.message-dropdown-menu');
+				// Find the dropdown menu for this message
+				const dropdown = $(this).find('.message-dropdown');
+				const menu = dropdown.find('.message-dropdown-menu');
 
-    // Show and position the menu at mouse location (viewport)
-    dropdown.addClass('active');
-    menu.addClass('show');
+				// Show and position the menu at mouse location (viewport)
+				dropdown.addClass('active');
+				menu.addClass('show');
 
-    // Use viewport coordinates for absolute positioning
-    menu.css({
-        position: 'fixed',
-        left: e.clientX + 'px',
-        top: e.clientY + 'px',
-        minWidth: '160px',
-        zIndex: 9999
-    });
-});
+				// Use viewport coordinates for absolute positioning
+				menu.css({
+					position: 'fixed',
+					left: e.clientX + 'px',
+					top: e.clientY + 'px',
+					minWidth: '160px',
+					zIndex: 9999
+				});
+			});
 
 			// Add click handler for dropdown toggle
 			messageItem.find('.message-dropdown-toggle').on('click', function(e) {
@@ -1023,7 +1090,7 @@ class WhatsAppChatInterface {
 					menu.css({position: '', left: '', top: '', minWidth: '', zIndex: ''});
 				}
 			});
-	
+
 			// Add click handler for delete message option
 			messageItem.find('.delete-message').on('click', function(e) {
 				e.stopPropagation();
@@ -1042,7 +1109,7 @@ class WhatsAppChatInterface {
 				}
 			});
 			
-	
+
 			// Add reactions to this message if there are any
 			if (msg.message_id && reactionMessages[msg.message_id] && reactionMessages[msg.message_id].length > 0) {
 				// Create a reactions container
@@ -1073,7 +1140,7 @@ class WhatsAppChatInterface {
 			
 			messagesContainer.append(messageItem);
 		});
-	
+
 		// Close dropdowns when clicking elsewhere
 		$(document).on('click', function(e) {
 			if ($(e.target).closest('.message-dropdown').length === 0) {
@@ -1089,17 +1156,17 @@ class WhatsAppChatInterface {
 				$('.message-dropdown').removeClass('active');
 			}
 		});
-	
+
 		// Scroll to bottom
 		setTimeout(() => {
 			messagesContainer.scrollTop(messagesContainer[0].scrollHeight);
 		}, 100);
-	
+
 		function formatMessageDate(date) {
 			const today = new Date();
 			const yesterday = new Date(today);
 			yesterday.setDate(yesterday.getDate() - 1);
-	
+
 			// Check if the message is from today
 			if (date.toDateString() === today.toDateString()) {
 				return 'TODAY';
@@ -1115,7 +1182,7 @@ class WhatsAppChatInterface {
 			}
 			// Otherwise show date
 			else {
-				const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+				const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'FEB', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 				return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 			}
 		}
@@ -1376,307 +1443,336 @@ class WhatsAppChatInterface {
 	}
     
    send_template() {
-		const me = this;
-		
-		// Create a dialog with initial template selection only
-		let dialog = new frappe.ui.Dialog({
-		title: 'Send Template Message',
-		fields: [
-			{
-			label: 'Template',
-			fieldname: 'template',
-			fieldtype: 'Link',
-			options: 'WhatsApp Templates',
-			reqd: 1,
-			onchange: function() {
-				// When template changes, fetch its details
-				if (this.value) {
-				frappe.call({
-					method: 'frappe.client.get',
-					args: {
-					doctype: 'WhatsApp Templates',
-					name: this.value
-					},
-					callback: function(r) {
-					if (r.message) {
-						// Update preview
-						me.updateTemplatePreview(dialog, r.message);
+	const me = this;
+	
+	// Create a dialog with initial template selection only
+	let dialog = new frappe.ui.Dialog({
+	title: 'Send Template Message',
+	fields: [
+		{
+		label: 'Template',
+		fieldname: 'template',
+		fieldtype: 'Link',
+		options: 'WhatsApp Templates',
+		reqd: 1,
+		onchange: function() {
+			// When template changes, fetch its details
+			if (this.value) {
+			frappe.call({
+				method: 'frappe.client.get',
+				args: {
+				doctype: 'WhatsApp Templates',
+				name: this.value
+				},
+				callback: function(r) {
+				if (r.message) {
+					// Update preview
+					me.updateTemplatePreview(dialog, r.message);
+					
+					// Show/hide file attachment field based on template header type
+					const templateData = r.message;
+					if (templateData.header_type && ['IMAGE', 'DOCUMENT', 'VIDEO'].includes(templateData.header_type)) {
+						dialog.set_df_property('file_section', 'hidden', 0);
+						dialog.set_df_property('attach', 'hidden', 0);
+						dialog.set_df_property('attach', 'reqd', 1);
+						dialog.set_df_property('attach', 'description', `This template requires a ${templateData.header_type.toLowerCase()} file`);
+					} else {
+						dialog.set_df_property('file_section', 'hidden', 1);
+						dialog.set_df_property('attach', 'hidden', 1);
+						dialog.set_df_property('attach', 'reqd', 0);
+					}
+					
+					// Check if template has variables (look for {{}} patterns)
+					const templateText = r.message.template || '';
+					const variableMatches = templateText.match(/\{\{([^}]+)\}\}/g);
+					
+					if (variableMatches && variableMatches.length > 0) {
+					// Extract variable names from {{variable}} patterns
+					let sampleValues = {};
+					variableMatches.forEach(match => {
+						const variableName = match.replace(/[{}]/g, '');
+						sampleValues[variableName] = `[${variableName}]`; // Default sample value
+					});
+					
+					// If sample_values field exists, try to parse it
+					if (r.message.sample_values) {
+						try {
+						const parsedSampleValues = JSON.parse(r.message.sample_values);
+						sampleValues = { ...sampleValues, ...parsedSampleValues };
+						} catch (e) {
+						// Keep the default sample values if parsing fails
+						}
+					}
+					
+					const variables = Object.keys(sampleValues);
+					
+					if (variables.length > 0) {
+						// Show doctype and document selection fields
+						dialog.set_df_property('reference_doctype_section', 'hidden', 0);
+						dialog.set_df_property('reference_doctype', 'hidden', 0);
+						dialog.set_df_property('reference_name', 'hidden', 0);
+						dialog.set_df_property('custom_data', 'hidden', 0);
 						
-						// Check if template has variables (look for {{}} patterns)
-						const templateText = r.message.template || '';
-						const variableMatches = templateText.match(/\{\{([^}]+)\}\}/g);
-						
-						if (variableMatches && variableMatches.length > 0) {
-						// Extract variable names from {{variable}} patterns
-						let sampleValues = {};
-						variableMatches.forEach(match => {
-							const variableName = match.replace(/[{}]/g, '');
-							sampleValues[variableName] = `[${variableName}]`; // Default sample value
+						// Setup the field mapping child table
+						let field_mapping_fields = [];
+						variables.forEach((variable, index) => {
+						field_mapping_fields.push({
+							variable: variable,
+							sample_value: sampleValues[variable],
+							docfield: ""
+						});
 						});
 						
-						// If sample_values field exists, try to parse it
-						if (r.message.sample_values) {
-							try {
-							const parsedSampleValues = JSON.parse(r.message.sample_values);
-							sampleValues = { ...sampleValues, ...parsedSampleValues };
-							} catch (e) {
-							// Keep the default sample values if parsing fails
-							}
-						}
-						
-						const variables = Object.keys(sampleValues);
-						
-						if (variables.length > 0) {
-							// Show doctype and document selection fields
-							dialog.set_df_property('reference_doctype_section', 'hidden', 0);
-							dialog.set_df_property('reference_doctype', 'hidden', 0);
-							dialog.set_df_property('reference_name', 'hidden', 0);
-							dialog.set_df_property('custom_data', 'hidden', 0);
-							
-							// Setup the field mapping child table
-							let field_mapping_fields = [];
-							variables.forEach((variable, index) => {
-							field_mapping_fields.push({
-								variable: variable,
-								sample_value: sampleValues[variable],
-								docfield: ""
-							});
-							});
-							
-							dialog.set_value('field_mappings', field_mapping_fields);
-						} else {
-							// Hide document selection fields if no variables
-							dialog.set_df_property('reference_doctype_section', 'hidden', 1);
-							dialog.set_df_property('reference_doctype', 'hidden', 1);
-							dialog.set_df_property('reference_name', 'hidden', 1);
-							dialog.set_df_property('custom_data', 'hidden', 1);
-							dialog.set_df_property('field_mapping_section', 'hidden', 1);
-						}
-						} else {
-						// Hide document selection fields if no sample values
+						dialog.set_value('field_mappings', field_mapping_fields);
+					} else {
+						// Hide document selection fields if no variables
 						dialog.set_df_property('reference_doctype_section', 'hidden', 1);
 						dialog.set_df_property('reference_doctype', 'hidden', 1);
 						dialog.set_df_property('reference_name', 'hidden', 1);
 						dialog.set_df_property('custom_data', 'hidden', 1);
 						dialog.set_df_property('field_mapping_section', 'hidden', 1);
-						}
 					}
+					} else {
+					// Hide document selection fields if no sample values
+					dialog.set_df_property('reference_doctype_section', 'hidden', 1);
+					dialog.set_df_property('reference_doctype', 'hidden', 1);
+					dialog.set_df_property('reference_name', 'hidden', 1);
+					dialog.set_df_property('custom_data', 'hidden', 1);
+					dialog.set_df_property('field_mapping_section', 'hidden', 1);
 					}
-				});
-				} else {
-				// Clear preview when no template selected
-				dialog.set_df_property('template_preview', 'options', '');
-				}
-			}
-			},
-			{
-			fieldtype: 'Section Break',
-			fieldname: 'preview_section',
-			label: 'Template Preview'
-			},
-			{
-			fieldtype: 'HTML',
-			fieldname: 'template_preview',
-			options: '<div style="text-align: center; padding: 20px; color: #8d99a6;">Select a template to see preview</div>'
-			},
-			{
-			fieldtype: 'Section Break',
-			fieldname: 'reference_doctype_section',
-			label: 'Document Reference',
-			hidden: 1
-			},
-			{
-			label: 'Select Document Type',
-			fieldname: 'reference_doctype',
-			fieldtype: 'Link',
-			options: 'DocType',
-			hidden: 1,
-			onchange: function() {
-				if (this.value) {
-				// Update reference_name to be a link field of the selected doctype
-				dialog.fields_dict.reference_name.df.options = this.value;
-				dialog.fields_dict.reference_name.refresh();
-				
-				// Get fields of the selected doctype for mapping
-				frappe.model.with_doctype(this.value, function() {
-					let fields = frappe.meta.get_docfields(dialog.get_value('reference_doctype'), null, {
-					fieldtype: ['not in', ['Section Break', 'Column Break', 'Tab Break', 'HTML', 'Table', 'Button', 'Image']]
-					});
-					
-					// Update the docfield options in the field mappings table
-					let docfields = fields.map(f => ({ value: f.fieldname, label: `${f.label || f.fieldname} (${f.fieldtype})` }));
-					
-					dialog.fields_dict.field_mappings.grid.update_docfield_property(
-					'docfield', 'options', docfields
-					);
-					
-					// Refresh the grid to show updated options
-					dialog.fields_dict.field_mappings.grid.refresh();
-				});
-				}
-			}
-			},
-			{
-			label: 'Select Document',
-			fieldname: 'reference_name',
-			fieldtype: 'Link',
-			options: 'reference_doctype',
-			hidden: 1,
-			onchange: function() {
-				// Update preview when document changes
-				if (this.value && dialog.get_value('reference_doctype')) {
-				me.updatePreviewWithDocumentData(dialog);
-				}
-			}
-			},
-			{
-			fieldtype: 'Check',
-			fieldname: 'custom_data',
-			label: 'Custom Data',
-			hidden: 1,
-			onchange: function () {
-				// Use the checkbox's current value (true/false)
-				if (this.get_value()) {
-				dialog.set_df_property('field_mapping_section', 'hidden', 0); // show
-				} else {
-				dialog.set_df_property('field_mapping_section', 'hidden', 1); // hide
-				}
-				// Update preview when custom data setting changes
-				me.updatePreviewWithDocumentData(dialog);
-			}
-			},
-			{
-			fieldtype: 'Section Break',
-			fieldname: 'field_mapping_section',
-			label: 'Map Document Fields to Template Variables',
-			hidden: 1
-			},
-			{
-			fieldname: 'field_mappings',
-			fieldtype: 'Table',
-			hidden: 0,
-			fields: [
-				{
-				fieldname: 'variable',
-				fieldtype: 'Data',
-				label: 'Template Variable',
-				in_list_view: 1,
-				read_only: 1
-				},
-				{
-				fieldname: 'docfield',
-				fieldtype: 'Autocomplete',
-				label: 'Document Field',
-				in_list_view: 1,
-				options: [],
-				onchange: function() {
-					// Update preview when field mapping changes
-					me.updatePreviewWithDocumentData(dialog);
-				}
-				}
-			]
-			}
-		],
-		primary_action_label: 'Send',
-		primary_action(values) {
-			if (!me.current_contact) return;
-			
-			// Prepare the message doc
-			let msg_doc = {
-			doctype: 'WhatsApp Message',
-			type: 'Outgoing',
-			to: me.current_contact,
-			use_template: 1,
-			custom_data: values.custom_data ? 1 : 0,
-			template: values.template,
-			content_type: 'text',
-			message_type: 'Template',
-			status: 'queued',
-			reference_doctype: values.reference_doctype || null,
-			reference_name: values.reference_name || null
-			};
-			
-			// Handle parameter building
-			if (values.custom_data && values.reference_doctype && values.reference_name && values.field_mappings) {
-			frappe.call({
-				method: 'frappe.client.get',
-				args: {
-				doctype: values.reference_doctype,
-				name: values.reference_name
-				},
-				callback: function(r) {
-				if (r.message) {
-					const doc = r.message;
-					let parameters = {};
-					let fields = [];
-					
-					// Construct parameters from field mappings and prepare fields table data
-					(values.field_mappings || []).forEach(mapping => {
-					if (mapping.docfield && mapping.variable) {
-						parameters[mapping.variable] = doc[mapping.docfield] || '';
-						
-						// Add to fields table
-						fields.push({
-						variable: mapping.variable,
-						field_name: mapping.docfield,
-						value: doc[mapping.docfield] || ''
-						});
-					}
-					});
-					
-					msg_doc.template_parameters = JSON.stringify(parameters);
-					msg_doc.fields = fields;  // Add fields array for child table
-					
-					// Insert the message doc
-					frappe.call({
-					method: 'frappe.client.insert',
-					args: { doc: msg_doc },
-					callback: function(r) {
-						if (r.message) {
-						me.load_messages(me.current_contact);
-						frappe.show_alert({
-							message: __('Template message queued for sending'),
-							indicator: 'green'
-						});
-						}
-					}
-					});
 				}
 				}
 			});
 			} else {
-			// Simple template with no custom data
-			msg_doc.template_parameters = '{}';
+			// Clear preview when no template selected
+			dialog.set_df_property('template_preview', 'options', '');
+			dialog.set_df_property('file_section', 'hidden', 1);
+			dialog.set_df_property('attach', 'hidden', 1);
+			}
+		}
+		},
+		{
+		fieldtype: 'Section Break',
+		fieldname: 'file_section',
+		label: 'File Attachment',
+		hidden: 1
+		},
+		{
+		label: 'Attach File',
+		fieldname: 'attach',
+		fieldtype: 'Attach',
+		hidden: 1,
+		description: 'Required for templates with IMAGE, DOCUMENT, or VIDEO header'
+		},
+		{
+		fieldtype: 'Section Break',
+		fieldname: 'preview_section',
+		label: 'Template Preview'
+		},
+		{
+		fieldtype: 'HTML',
+		fieldname: 'template_preview',
+		options: '<div style="text-align: center; padding: 20px; color: #8d99a6;">Select a template to see preview</div>'
+		},
+		{
+		fieldtype: 'Section Break',
+		fieldname: 'reference_doctype_section',
+		label: 'Document Reference',
+		hidden: 1
+		},
+		{
+		label: 'Select Document Type',
+		fieldname: 'reference_doctype',
+		fieldtype: 'Link',
+		options: 'DocType',
+		hidden: 1,
+		onchange: function() {
+			if (this.value) {
+			// Update reference_name to be a link field of the selected doctype
+			dialog.fields_dict.reference_name.df.options = this.value;
+			dialog.fields_dict.reference_name.refresh();
 			
-			frappe.call({
+			// Get fields of the selected doctype for mapping
+			frappe.model.with_doctype(this.value, function() {
+				let fields = frappe.meta.get_docfields(dialog.get_value('reference_doctype'), null, {
+				fieldtype: ['not in', ['Section Break', 'Column Break', 'Tab Break', 'HTML', 'Table', 'Button', 'Image']]
+				});
+				
+				// Update the docfield options in the field mappings table
+				let docfields = fields.map(f => ({ value: f.fieldname, label: `${f.label || f.fieldname} (${f.fieldtype})` }));
+				
+				dialog.fields_dict.field_mappings.grid.update_docfield_property(
+				'docfield', 'options', docfields
+				);
+				
+				// Refresh the grid to show updated options
+				dialog.fields_dict.field_mappings.grid.refresh();
+			});
+			}
+		}
+		},
+		{
+		label: 'Select Document',
+		fieldname: 'reference_name',
+		fieldtype: 'Link',
+		options: 'reference_doctype',
+		hidden: 1,
+		onchange: function() {
+			// Update preview when document changes
+			if (this.value && dialog.get_value('reference_doctype')) {
+			me.updatePreviewWithDocumentData(dialog);
+			}
+		}
+		},
+		{
+		fieldtype: 'Check',
+		fieldname: 'custom_data',
+		label: 'Custom Data',
+		hidden: 1,
+		onchange: function () {
+			// Use the checkbox's current value (true/false)
+			if (this.get_value()) {
+			dialog.set_df_property('field_mapping_section', 'hidden', 0); // show
+			} else {
+			dialog.set_df_property('field_mapping_section', 'hidden', 1); // hide
+			}
+			// Update preview when custom data setting changes
+			me.updatePreviewWithDocumentData(dialog);
+		}
+		},
+		{
+		fieldtype: 'Section Break',
+		fieldname: 'field_mapping_section',
+		label: 'Map Document Fields to Template Variables',
+		hidden: 1
+		},
+		{
+		fieldname: 'field_mappings',
+		fieldtype: 'Table',
+		hidden: 0,
+		fields: [
+			{
+			fieldname: 'variable',
+			fieldtype: 'Data',
+			label: 'Template Variable',
+			in_list_view: 1,
+			read_only: 1
+			},
+			{
+			fieldname: 'docfield',
+			fieldtype: 'Autocomplete',
+			label: 'Document Field',
+			in_list_view: 1,
+			options: [],
+			onchange: function() {
+				// Update preview when field mapping changes
+				me.updatePreviewWithDocumentData(dialog);
+			}
+			}
+		]
+		}
+	],
+	primary_action_label: 'Send',
+	primary_action(values) {
+		if (!me.current_contact) return;
+		
+		// Prepare the message doc
+		let msg_doc = {
+		doctype: 'WhatsApp Message',
+		type: 'Outgoing',
+		to: me.current_contact,
+		use_template: 1,
+		custom_data: values.custom_data ? 1 : 0,
+		template: values.template,
+		content_type: 'text',
+		message_type: 'Template',
+		status: 'queued',
+		reference_doctype: values.reference_doctype || null,
+		reference_name: values.reference_name || null,
+		attach: values.attach || null // Add file attachment
+		};
+		
+		// Handle parameter building
+		if (values.custom_data && values.reference_doctype && values.reference_name && values.field_mappings) {
+		frappe.call({
+			method: 'frappe.client.get',
+			args: {
+			doctype: values.reference_doctype,
+			name: values.reference_name
+			},
+			callback: function(r) {
+			if (r.message) {
+				const doc = r.message;
+				let parameters = {};
+				let fields = [];
+				
+				// Construct parameters from field mappings and prepare fields table data
+				(values.field_mappings || []).forEach(mapping => {
+				if (mapping.docfield && mapping.variable) {
+					parameters[mapping.variable] = doc[mapping.docfield] || '';
+					
+					// Add to fields table
+					fields.push({
+					variable: mapping.variable,
+					field_name: mapping.docfield,
+					value: doc[mapping.docfield] || ''
+					});
+				}
+				});
+				
+				msg_doc.template_parameters = JSON.stringify(parameters);
+				msg_doc.fields = fields;  // Add fields array for child table
+				
+				// Insert the message doc
+				frappe.call({
 				method: 'frappe.client.insert',
 				args: { doc: msg_doc },
 				callback: function(r) {
-				if (r.message) {
+					if (r.message) {
 					me.load_messages(me.current_contact);
 					frappe.show_alert({
-					message: __('Template message queued for sending'),
-					indicator: 'green'
+						message: __('Template message queued for sending'),
+						indicator: 'green'
 					});
+					}
 				}
-				}
-			});
+				});
 			}
-			
-			dialog.hide();
-		}
+			}
 		});
+		} else {
+		// Simple template with no custom data
+		msg_doc.template_parameters = '{}';
 		
-		dialog.show();
+		frappe.call({
+			method: 'frappe.client.insert',
+			args: { doc: msg_doc },
+			callback: function(r) {
+			if (r.message) {
+				me.load_messages(me.current_contact);
+				frappe.show_alert({
+				message: __('Template message queued for sending'),
+				indicator: 'green'
+				});
+			}
+			}
+		});
+		}
+		
+		dialog.hide();
 	}
+	});
+	
+	dialog.show();
+}
 
-	// Add these helper methods to your WhatsAppChatInterface class
-	updateTemplatePreview(dialog, templateData) {
-		const previewHtml = this.generateTemplatePreview(templateData);
-		dialog.set_df_property('template_preview', 'options', previewHtml);
-	}
+// Add these helper methods to your WhatsAppChatInterface class
+updateTemplatePreview(dialog, templateData) {
+	const previewHtml = this.generateTemplatePreview(templateData);
+	dialog.set_df_property('template_preview', 'options', previewHtml);
+}
 
-	// Alternative approach: Update the generateTemplatePreview method to handle newlines properly
+// Alternative approach: Update the generateTemplatePreview method to handle newlines properly
 generateTemplatePreview(templateData) {
     const headerText = templateData.header || '';
     const bodyText = templateData.template || templateData.body || '';
@@ -1744,30 +1840,30 @@ generateTemplatePreview(templateData) {
     return previewHtml;
 }
 
-	updatePreviewWithDocumentData(dialog) {
-		const templateName = dialog.get_value('template');
-		
-		if (!templateName) {
-			return;
-		}
-		
-		// Get template data and show simple preview
-		frappe.call({
-			method: 'frappe.client.get',
-			args: {
-				doctype: 'WhatsApp Templates',
-				name: templateName
-			},
-			callback: (templateResponse) => {
-				if (templateResponse.message) {
-					const templateData = templateResponse.message;
-					this.updateTemplatePreview(dialog, templateData);
-				}
-			}
-		});
+updatePreviewWithDocumentData(dialog) {
+	const templateName = dialog.get_value('template');
+	
+	if (!templateName) {
+		return;
 	}
+	
+	// Get template data and show simple preview
+	frappe.call({
+		method: 'frappe.client.get',
+		args: {
+			doctype: 'WhatsApp Templates',
+			name: templateName
+		},
+		callback: (templateResponse) => {
+			if (templateResponse.message) {
+				const templateData = templateResponse.message;
+				this.updateTemplatePreview(dialog, templateData);
+			}
+		}
+	});
+}
 
-	// Updated helper method to preserve newlines and handle WhatsApp markdown
+// Updated helper method to preserve newlines and handle WhatsApp markdown
 escapeHtml(text) {
     if (!text) return '';
     
@@ -1797,164 +1893,292 @@ escapeHtml(text) {
     
     return escapedText;
 }
-	show_bulk_message_dialog() {
-		const me = this;
-		let dialog = new frappe.ui.Dialog({
-			title: 'Send Bulk WhatsApp Message',
-			fields: [
-				{
-					label: 'Title',
-					fieldname: 'title',
-					fieldtype: 'Data',
-					reqd: 1
-				},
-				{
-					label: 'Recipient Type',
-					fieldname: 'recipient_type',
-					fieldtype: 'Select',
-					options: ['Individual', 'Group'],
-					reqd: 1,
-					default: 'Individual',
-					onchange: function() {
-						const val = dialog.get_value('recipient_type');
-						dialog.set_df_property('mobile_numbers', 'hidden', val !== 'Individual');
-						dialog.set_df_property('recipient_list', 'hidden', val !== 'Group');
-					}
-				},
-				{
-					label: 'Mobile Numbers (one per line, with country code)',
-					fieldname: 'mobile_numbers',
-					fieldtype: 'Text',
-					reqd: 1,
-					description: 'Example:\n+919512345678\n+919876543210',
-					hidden: 0
-				},
-				{
-					label: 'Recipient List',
-					fieldname: 'recipient_list',
-					fieldtype: 'Link',
-					options: 'WhatsApp Recipient List', // <-- Corrected doctype name
-					hidden: 1
-				},
-				{
-					label: 'Use Template',
-					fieldname: 'use_template',
-					fieldtype: 'Check',
-					default: 1
-				},
-				{
-					label: 'Message',
-					fieldname: 'message',
-					fieldtype: 'Text',
-					depends_on: 'eval:!doc.use_template'
-				},
-				{
-					label: 'Template',
-					fieldname: 'template',
-					fieldtype: 'Link',
-					options: 'WhatsApp Templates',
-					depends_on: 'use_template'
+
+show_bulk_message_dialog() {
+	const me = this;
+	let dialog = new frappe.ui.Dialog({
+		title: 'Send Bulk WhatsApp Message',
+		fields: [
+			{
+				label: 'Title',
+				fieldname: 'title',
+				fieldtype: 'Data',
+				reqd: 1
+			},
+			{
+				label: 'Recipient Type',
+				fieldname: 'recipient_type',
+				fieldtype: 'Select',
+				options: ['Individual', 'Group'],
+				reqd: 1,
+				default: 'Individual',
+				onchange: function() {
+					const val = dialog.get_value('recipient_type');
+					dialog.set_df_property('mobile_numbers', 'hidden', val !== 'Individual');
+					dialog.set_df_property('recipient_list', 'hidden', val !== 'Group');
 				}
-			],
-			primary_action_label: 'Send',
-			primary_action(values) {
-				if (!values.title) {
-					frappe.msgprint('Please enter a Title.');
-					return;
+			},
+			{
+				label: 'Mobile Numbers (one per line, with country code)',
+				fieldname: 'mobile_numbers',
+				fieldtype: 'Text',
+				reqd: 1,
+				description: 'Example:\n+919512345678\n+919876543210',
+				hidden: 0
+			},
+			{
+				label: 'Recipient List',
+				fieldname: 'recipient_list',
+				fieldtype: 'Link',
+				options: 'WhatsApp Recipient List',
+				hidden: 1
+			},
+			{
+				label: 'Use Template',
+				fieldname: 'use_template',
+				fieldtype: 'Check',
+				default: 1,
+				onchange: function() {
+					const useTemplate = dialog.get_value('use_template');
+					dialog.set_df_property('message', 'hidden', useTemplate);
+					dialog.set_df_property('template', 'hidden', !useTemplate);
+					dialog.set_df_property('template_variables_section', 'hidden', !useTemplate);
+					dialog.set_df_property('file_section', 'hidden', !useTemplate);
 				}
-				if (values.recipient_type === 'Individual') {
-					if (!values.mobile_numbers) {
-						frappe.msgprint('Please enter at least one mobile number.');
-						return;
-					}
-					var numbers = values.mobile_numbers.split('\n').map(n => n.trim()).filter(Boolean);
-					if (!numbers.length) {
-						frappe.msgprint('Please enter valid mobile numbers.');
-						return;
-					}
-					frappe.call({
-						method: 'frappe.client.insert',
-						args: {
-							doc: {
-								doctype: 'Bulk WhatsApp Message',
-								title: values.title,
-								recipient_type: values.recipient_type,
-								use_template: values.use_template ? 1 : 0,
-								message: values.message || '',
-								template: values.template || '',
-								recipients: numbers.map(num => ({
-									doctype: 'WhatsApp Recipient',
-									mobile_number: num
-								}))
-							}
-						},
-						callback: function(r) {
-							if (r.message && r.message.name) {
-								// Fetch the full doc before submitting
-								frappe.call({
-									method: 'frappe.client.get',
-									args: {
-										doctype: 'Bulk WhatsApp Message',
-										name: r.message.name
-									},
-									callback: function(get_res) {
-										if (get_res.message) {
-											frappe.call({
-												method: 'frappe.client.submit',
-												args: {
-													doc: get_res.message
-												},
-												callback: function() {
-													frappe.show_alert('Bulk WhatsApp Message queued for sending');
-													dialog.hide();
-												}
-											});
-										}
+			},
+			{
+				label: 'Message',
+				fieldname: 'message',
+				fieldtype: 'Text',
+				depends_on: 'eval:!doc.use_template',
+				hidden: 1
+			},
+			{
+				label: 'Template',
+				fieldname: 'template',
+				fieldtype: 'Link',
+				options: 'WhatsApp Templates',
+				depends_on: 'use_template',
+				onchange: function() {
+					if (this.value) {
+						// Fetch template details to check for file requirements
+						frappe.call({
+							method: 'frappe.client.get',
+							args: {
+								doctype: 'WhatsApp Templates',
+								name: this.value
+							},
+							callback: function(r) {
+								if (r.message) {
+									const templateData = r.message;
+									
+									// Show/hide file attachment based on template header type
+									if (templateData.header_type && ['IMAGE', 'DOCUMENT', 'VIDEO'].includes(templateData.header_type)) {
+										dialog.set_df_property('file_section', 'hidden', 0);
+										dialog.set_df_property('attach', 'hidden', 0);
+										dialog.set_df_property('attach', 'reqd', 1);
+										dialog.set_df_property('attach', 'description', 
+											`This template requires a ${templateData.header_type.toLowerCase()} file`);
+									} else {
+										dialog.set_df_property('file_section', 'hidden', 1);
+										dialog.set_df_property('attach', 'hidden', 1);
+										dialog.set_df_property('attach', 'reqd', 0);
 									}
-								});
-							}
-						}
-										});
-				} else if (values.recipient_type === 'Group') {
-					if (!values.recipient_list) {
-						frappe.msgprint('Please select a Recipient List.');
-						return;
-					}
-					frappe.call({
-						method: 'frappe.client.insert',
-						args: {
-							doc: {
-								doctype: 'Bulk WhatsApp Message',
-								title: values.title,
-								recipient_type: values.recipient_type,
-								use_template: values.use_template ? 1 : 0,
-								message: values.message || '',
-								template: values.template || '',
-								recipient_list: values.recipient_list
-							}
-						},
-						callback: function(r) {
-							if (r.message && r.message.name) {
-								// Auto-submit after insert
-								frappe.call({
-									method: 'frappe.client.submit',
-									args: {
-										doctype: 'Bulk WhatsApp Message',
-										name: r.message.name
-									},
-									callback: function() {
-										frappe.show_alert('Bulk WhatsApp Message queued for sending');
-										dialog.hide();
+									
+									// Check for template variables
+									const templateText = templateData.template || '';
+									const variableMatches = templateText.match(/\{\{([^}]+)\}\}/g);
+									
+									if (variableMatches && variableMatches.length > 0) {
+										dialog.set_df_property('template_variables_section', 'hidden', 0);
+										dialog.set_df_property('template_variables', 'hidden', 0);
+										
+										// Show helper text for variables
+										const variables = variableMatches.map(match => match.replace(/[{}]/g, ''));
+										dialog.set_df_property('template_variables', 'description', 
+											`Template variables found: ${variables.join(', ')}. You can provide JSON data for variable replacement.`);
+									} else {
+										dialog.set_df_property('template_variables_section', 'hidden', 1);
+										dialog.set_df_property('template_variables', 'hidden', 1);
 									}
-								});
+								}
 							}
-						}
-					});
+						});
+					} else {
+						dialog.set_df_property('file_section', 'hidden', 1);
+						dialog.set_df_property('template_variables_section', 'hidden', 1);
+					}
 				}
+			},
+			{
+				fieldtype: 'Section Break',
+				fieldname: 'file_section',
+				label: 'File Attachment',
+				hidden: 1
+			},
+			{
+				label: 'Attach File',
+				fieldname: 'attach',
+				fieldtype: 'Attach',
+				hidden: 1,
+				description: 'Required for templates with IMAGE, DOCUMENT, or VIDEO header'
+			},
+			{
+				fieldtype: 'Section Break',
+				fieldname: 'template_variables_section',
+				label: 'Template Variables',
+				hidden: 1
+			},
+			{
+				label: 'Template Variables (JSON)',
+				fieldname: 'template_variables',
+				fieldtype: 'Code',
+				options: 'JSON',
+				hidden: 1,
+				description: 'Provide JSON data for template variable replacement. Example: {"name": "John", "amount": "100"}'
 			}
-		});
-		dialog.set_df_property('mobile_numbers', 'hidden', 0);
-		dialog.set_df_property('recipient_list', 'hidden', 1);
-		dialog.show();
+		],
+		primary_action_label: 'Send',
+		primary_action(values) {
+			if (!values.title) {
+				frappe.msgprint('Please enter a Title.');
+				return;
+			}
+			
+			// Validate template requirements
+			if (values.use_template && values.template) {
+				frappe.call({
+					method: 'frappe.client.get',
+					args: {
+						doctype: 'WhatsApp Templates',
+						name: values.template
+					},
+					callback: function(r) {
+						if (r.message) {
+							const templateData = r.message;
+							
+							// Check file requirement
+							if (templateData.header_type && ['IMAGE', 'DOCUMENT', 'VIDEO'].includes(templateData.header_type)) {
+								if (!values.attach) {
+									frappe.msgprint(`This template requires a ${templateData.header_type.toLowerCase()} file. Please attach one.`);
+									return;
+								}
+							}
+							
+							// Proceed with bulk message creation
+							me.createBulkMessage(values, dialog);
+						}
+					}
+				});
+			} else {
+				// No template validation needed
+				me.createBulkMessage(values);
+			}
+		}
+	});
+	
+	dialog.set_df_property('mobile_numbers', 'hidden', 0);
+	dialog.set_df_property('recipient_list', 'hidden', 1);
+	dialog.set_df_property('message', 'hidden', 1);
+	dialog.set_df_property('template_variables_section', 'hidden', 1);
+	dialog.set_df_property('file_section', 'hidden', 1);
+	dialog.show();
+}
+
+createBulkMessage(values, dialog) {
+	const me = this;
+	
+	if (values.recipient_type === 'Individual') {
+		if (!values.mobile_numbers) {
+			frappe.msgprint('Please enter at least one mobile number.');
+			return;
+		}
+		var numbers = values.mobile_numbers.split('\n').map(n => n.trim()).filter(Boolean);
+		if (!numbers.length) {
+			frappe.msgprint('Please enter valid mobile numbers.');
+			return;
+		}
+		
+		// Create bulk message doc
+		let bulkDoc = {
+			doctype: 'Bulk WhatsApp Message',
+			title: values.title,
+			recipient_type: 'Individual',
+			use_template: values.use_template ? 1 : 0,
+			message: values.message || '',
+			template: values.template || '',
+			attach: values.attach || null,
+			template_variables: values.template_variables || null,
+			recipients: numbers.map(num => ({
+				doctype: 'WhatsApp Recipient',
+				mobile_number: num
+			}))
+		};
+		
+		frappe.call({
+    method: 'frappe.client.insert',
+    args: { doc: bulkDoc },
+    callback: function(r) {
+        if (r.message && r.message.name) {
+            const insertedDoc = r.message;
+            // Submit the document
+            frappe.call({
+                method: 'frappe.client.submit',
+                args: {
+                    doc: insertedDoc
+                },
+                callback: function() {
+                    frappe.show_alert({
+                        message: 'Bulk WhatsApp Message queued for sending',
+                        indicator: 'green'
+                    });
+                    dialog.hide();
+                }
+            });
+        }
+    }
+});
+	} else if (values.recipient_type === 'Group') {
+		if (!values.recipient_list) {
+			frappe.msgprint('Please select a Recipient List.');
+			return;
+		}
+		
+		let bulkDoc = {
+			doctype: 'Bulk WhatsApp Message',
+			title: values.title,
+			recipient_type: 'Recipient List',
+			use_template: values.use_template ? 1 : 0,
+			message: values.message || '',
+			template: values.template || '',
+			attach: values.attach || null,
+			template_variables: values.template_variables || null,
+			recipient_list: values.recipient_list
+		};
+		
+frappe.call({
+    method: 'frappe.client.insert',
+    args: { doc: bulkDoc },
+    callback: function(r) {
+        if (r.message && r.message.name) {
+            const insertedDoc = r.message;
+            // Submit the document
+            frappe.call({
+                method: 'frappe.client.submit',
+                args: {
+                    doc: insertedDoc
+                },
+                callback: function() {
+                    frappe.show_alert({
+                        message: 'Bulk WhatsApp Message queued for sending',
+                        indicator: 'green'
+                    });
+                    dialog.hide();
+                }
+            });
+        }
+    }
+});
 	}
+}
 }
