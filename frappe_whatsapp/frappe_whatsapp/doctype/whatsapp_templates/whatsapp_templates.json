@@ -27,7 +27,9 @@
   "header",
   "sample",
   "column_break_tbvf",
-  "footer"
+  "footer",
+  "section_break_wu2vp",
+  "buttons"
  ],
  "fields": [
   {
@@ -159,6 +161,7 @@
    "options": "WhatsApp Template Button"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
  "modified": "2025-04-19 12:46:22.733999",
@@ -181,6 +184,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

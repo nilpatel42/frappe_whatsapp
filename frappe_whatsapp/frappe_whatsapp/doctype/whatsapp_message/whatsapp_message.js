@@ -2,6 +2,13 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on('WhatsApp Message', {
+	onload: function(frm) {
+		frappe.db.get_value('WhatsApp Account', frm.doc.whatsapp_account, 'allow_auto_read_receipt').then(value => {
+			if (value && frm.doc.type === "Incoming" && frm.doc.status !== "marked as read" && frm.doc.message_id) {
+				send_read_receipt(frm);
+			}
+		});
+	},
 	refresh: function(frm) {
 		if (frm.doc.type === 'Incoming') {
 			frm.add_custom_button(__("Reply"), function() {

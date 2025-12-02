@@ -2,16 +2,59 @@
 # For license information, please see license.txt
 import json
 import frappe
+from frappe import _, throw
 from frappe.model.document import Document
 from frappe.integrations.utils import make_post_request
 from frappe.utils import get_url
 
+from frappe_whatsapp.utils import get_whatsapp_account, format_number
 
 class WhatsAppMessage(Document):
-    """Send whats app messages."""
+    def validate(self):
+        self.set_whatsapp_account()
 
+    def on_update(self):
+        self.update_profile_name()
+
+    def update_profile_name(self):
+        number = self.get("from")
+        if not number:
+            return
+        from_number = format_number(number)
+
+        if (
+            self.has_value_changed("profile_name")
+            and self.profile_name
+            and from_number
+            and frappe.db.exists("WhatsApp Profiles", {"number": from_number})
+        ):
+            profile_id = frappe.get_value("WhatsApp Profiles", {"number": from_number}, "name")
+            frappe.db.set_value("WhatsApp Profiles", profile_id, "profile_name", self.profile_name)
+
+    def create_whatsapp_profile(self):
+        number = format_number(self.get("from") or self.to)
+        if not frappe.db.exists("WhatsApp Profiles", {"number": number}):
+            frappe.get_doc({
+                "doctype": "WhatsApp Profiles",
+                "profile_name": self.profile_name,
+                "number": number,
+                "whatsapp_account": self.whatsapp_account
+            }).insert(ignore_permissions=True)
+
+    def set_whatsapp_account(self):
+        """Set whatsapp account to default if missing"""
+        if not self.whatsapp_account:
+            account_type = 'outgoing' if self.type == 'Outgoing' else 'incoming'
+            default_whatsapp_account = get_whatsapp_account(account_type=account_type)
+            if not default_whatsapp_account:
+                throw(_("Please set a default outgoing WhatsApp Account or Select available WhatsApp Account"))
+            else:
+                self.whatsapp_account = default_whatsapp_account.name
+
+    """Send whats app messages."""
     def before_insert(self):
         """Send message."""
+        self.set_whatsapp_account()
         if self.type == "Outgoing" and self.message_type != "Template":
             if self.attach and not self.attach.startswith("http"):
                 link = frappe.utils.get_url() + "/" + self.attach
@@ -20,7 +63,7 @@ class WhatsAppMessage(Document):
 
             data = {
                 "messaging_product": "whatsapp",
-                "to": self.format_number(self.to),
+                "to": format_number(self.to),
                 "type": self.content_type,
             }
             if self.is_reply and self.reply_to_message_id:
@@ -72,12 +115,14 @@ class WhatsAppMessage(Document):
         if result:
             self.profile_name = result[0].profile_name
 
+        self.create_whatsapp_profile()
+
     def send_template(self):
         """Send template."""
         template = frappe.get_doc("WhatsApp Templates", self.template)
         data = {
             "messaging_product": "whatsapp",
-            "to": self.format_number(self.to),
+            "to": format_number(self.to),
             "type": "template",
             "template": {
                 "name": template.actual_name or template.template_name,
@@ -91,7 +136,12 @@ class WhatsAppMessage(Document):
             parameters = []
             template_parameters = []
 
-            if self.flags.custom_ref_doc:
+            if self.body_param is not None:
+                params = list(json.loads(self.body_param).values())
+                for param in params:
+                    parameters.append({"type": "text", "text": param})
+                    template_parameters.append(param)
+            elif self.flags.custom_ref_doc:
                 custom_values = self.flags.custom_ref_doc
                 for field_name in field_names:
                     value = custom_values.get(field_name.strip())
@@ -115,7 +165,6 @@ class WhatsAppMessage(Document):
 
             
             self.template_parameters = json.dumps(template_parameters)
-
             data["template"]["components"].append(
                 {
                     "type": "body",
@@ -179,9 +228,9 @@ class WhatsAppMessage(Document):
 
     def notify(self, data):
         """Notify."""
-        settings = frappe.get_doc(
-            "WhatsApp Settings",
-            "WhatsApp Settings",
+        whatsapp_account = frappe.get_doc(
+            "WhatsApp Account",
+            self.whatsapp_account,
         )
         token = settings.get_password("token")
         
@@ -191,7 +240,7 @@ class WhatsAppMessage(Document):
         }
         try:
             response = make_post_request(
-                f"{settings.url}/{settings.version}/{settings.phone_id}/messages",
+                f"{whatsapp_account.url}/{whatsapp_account.version}/{whatsapp_account.phone_id}/messages",
                 headers=headers,
                 data=json.dumps(data),
             )
@@ -231,7 +280,7 @@ class WhatsAppMessage(Document):
                     None
                     
         except Exception as e:
-            res = frappe.flags.integration_request.json()["error"]
+            res = frappe.flags.integration_request.json().get("error", {})
             error_message = res.get("Error", res.get("message"))
             frappe.get_doc(
                 {
@@ -251,6 +300,41 @@ class WhatsAppMessage(Document):
 
         return number
 
+    @frappe.whitelist()
+    def send_read_receipt(self):
+        data = {
+            "messaging_product": "whatsapp",
+            "status": "read",
+            "message_id": self.message_id
+        }
+
+        settings = frappe.get_doc(
+            "WhatsApp Account",
+            self.whatsapp_account,
+        )
+
+        token = settings.get_password("token")
+
+        headers = {
+            "authorization": f"Bearer {token}",
+            "content-type": "application/json",
+        }
+        try:
+            response = make_post_request(
+                f"{settings.url}/{settings.version}/{settings.phone_id}/messages",
+                headers=headers,
+                data=json.dumps(data),
+            )
+
+            if response.get("success"):
+                self.status = "marked as read"
+                self.save()
+                return response.get("success")
+
+        except Exception as e:
+            res = frappe.flags.integration_request.json().get("error", {})
+            error_message = res.get("Error", res.get("message"))
+            frappe.log_error("WhatsApp API Error", f"{error_message}\n{res}")
 
 
 def on_doctype_update():

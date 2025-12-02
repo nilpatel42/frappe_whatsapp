@@ -111,6 +111,8 @@ class BulkWhatsAppMessage(Document):
         wa_message.to = recipient.get("mobile_number")
         wa_message.type = "Outgoing"
         wa_message.bulk_message_reference = self.name
+        if self.whatsapp_account:
+            wa_message.whatsapp_account = self.whatsapp_account
         
         # Since use_template defaults to 1, always handle as template
         if self.use_template:

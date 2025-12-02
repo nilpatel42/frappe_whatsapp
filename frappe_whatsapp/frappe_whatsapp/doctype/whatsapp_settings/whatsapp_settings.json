@@ -20,15 +20,16 @@
  ],
  "fields": [
   {
-   "fieldname": "token",
-   "fieldtype": "Password",
-   "label": "Token",
-   "length": 250
+   "fieldname": "default_incoming_account",
+   "fieldtype": "Link",
+   "label": "Default Incoming Account",
+   "options": "WhatsApp Account"
   },
   {
-   "fieldname": "url",
-   "fieldtype": "Data",
-   "label": "URL"
+   "fieldname": "default_outgoing_account",
+   "fieldtype": "Link",
+   "label": "Default Outgoing Account",
+   "options": "WhatsApp Account"
   },
   {
    "fieldname": "version",
@@ -78,6 +79,7 @@
    "label": "Whatsapp Notification Time (Cron)"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
@@ -98,6 +100,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

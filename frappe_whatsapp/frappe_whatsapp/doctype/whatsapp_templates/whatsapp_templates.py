@@ -10,11 +10,13 @@ from frappe.model.document import Document
 from frappe.integrations.utils import make_post_request, make_request
 from frappe.desk.form.utils import get_pdf_link
 
+from frappe_whatsapp.utils import get_whatsapp_account
 
 class WhatsAppTemplates(Document):
     """Create whatsapp template."""
 
     def validate(self):
+        self.set_whatsapp_account()
         if not self.language_code or self.has_value_changed("language"):
             lang_code = frappe.db.get_value("Language", self.language) or "en"
             self.language_code = lang_code.replace("-", "_")
@@ -26,6 +28,14 @@ class WhatsAppTemplates(Document):
         if not self.is_new():
             self.update_template()
 
+    def set_whatsapp_account(self):
+        """Set whatsapp account to default if missing"""
+        if not self.whatsapp_account:
+            default_whatsapp_account = get_whatsapp_account()
+            if not default_whatsapp_account:
+                throw(_("Please set a default outgoing WhatsApp Account or Select available WhatsApp Account"))
+            else:
+                self.whatsapp_account = default_whatsapp_account.name
 
     def get_session_id(self):
         """Upload media."""
@@ -101,6 +111,27 @@ class WhatsAppTemplates(Document):
         if self.footer:
             data["components"].append({"type": "FOOTER", "text": self.footer})
 
+        # add buttons
+        if self.buttons:
+            button_block = {"type": "BUTTONS", "buttons": []}
+            for btn in self.buttons:
+                b = {"type": btn.button_type, "text": btn.button_label}
+
+                if btn.button_type == "Visit Website":
+                    b["type"] = "URL"
+                    b["url"] = btn.website_url
+                    if btn.url_type == "Dynamic" and btn.example_url:
+                        b["example"] = btn.example_url.split(",")
+                elif btn.button_type == "Call Phone":
+                    b["type"] = "PHONE_NUMBER"
+                    b["phone_number"] = btn.phone_number
+                elif btn.button_type == "Quick Reply":
+                    b["type"] = "QUICK_REPLY"
+
+                button_block["buttons"].append(b)
+
+            data["components"].append(button_block)
+
         try:
             response = make_post_request(
                 f"{self._url}/{self._version}/{self._business_id}/message_templates",
@@ -111,7 +142,7 @@ class WhatsAppTemplates(Document):
             self.status = response["status"]
             self.db_update()
         except Exception as e:
-            res = frappe.flags.integration_request.json()["error"]
+            res = frappe.flags.integration_request.json().get("error", {})
             error_message = res.get("error_user_msg", res.get("message"))
             frappe.throw(
                 msg=error_message,
@@ -134,6 +165,26 @@ class WhatsAppTemplates(Document):
             data["components"].append(self.get_header())
         if self.footer:
             data["components"].append({"type": "FOOTER", "text": self.footer})
+        if self.buttons:
+            button_block = {"type": "BUTTONS", "buttons": []}
+            for btn in self.buttons:
+                b = {"type": btn.button_type, "text": btn.button_label}
+
+                if btn.button_type == "Visit Website":
+                    b["type"] = "URL"
+                    b["url"] = btn.website_url
+                    if btn.url_type == "Dynamic" and btn.example_url:
+                        b["example"] = btn.example_url.split(",")
+                elif btn.button_type == "Call Phone":
+                    b["type"] = "PHONE_NUMBER"
+                    b["phone_number"] = btn.phone_number
+                elif btn.button_type == "Quick Reply":
+                    b["type"] = "QUICK_REPLY"
+
+                button_block["buttons"].append(b)
+
+            data["components"].append(button_block)
+
         try:
             # post template to meta for update
             make_post_request(
@@ -151,7 +202,7 @@ class WhatsAppTemplates(Document):
 
     def get_settings(self):
         """Get whatsapp settings."""
-        settings = frappe.get_doc("WhatsApp Settings", "WhatsApp Settings")
+        settings = frappe.get_doc("WhatsApp Account", self.whatsapp_account)
         self._token = settings.get_password("token")
         self._url = settings.url
         self._version = settings.version
@@ -198,26 +249,27 @@ class WhatsAppTemplates(Document):
 
         return header
 
-
 @frappe.whitelist()
 def fetch():
     """Fetch templates from meta."""
+    """Later improve this code to pass a whatsapp account remove the js funcation so that it is called from whatsapp account doctype """
+    whatsapp_accounts = frappe.get_all('WhatsApp Account', filters={'status': 'Active'}, fields=['name', 'token', 'url', 'version', 'business_id'])
 
-    # get credentials
-    settings = frappe.get_doc("WhatsApp Settings", "WhatsApp Settings")
-    token = settings.get_password("token")
-    url = settings.url
-    version = settings.version
-    business_id = settings.business_id
+    for account in whatsapp_accounts:
+        # get credentials
+        token = frappe.get_doc("WhatsApp Account", account.name).get_password("token")
+        url = account.url
+        version = account.version
+        business_id = account.business_id
 
-    headers = {"authorization": f"Bearer {token}", "content-type": "application/json"}
+        headers = {"authorization": f"Bearer {token}", "content-type": "application/json"}
 
-    try:
-        response = make_request(
-            "GET",
-            f"{url}/{version}/{business_id}/message_templates",
-            headers=headers,
-        )
+        try:
+            response = make_request(
+                "GET",
+                f"{url}/{version}/{business_id}/message_templates",
+                headers=headers,
+            )
 
         for template in response["data"]:
             # set flag to insert or update
