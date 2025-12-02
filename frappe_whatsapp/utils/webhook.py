@@ -40,6 +40,30 @@ def post():
 		"meta_data": json.dumps(data)
 	}).insert(ignore_permissions=True)
 
+	# Extract incoming phone number ID from the webhook payload
+	incoming_phone_id = None
+	
+	if data.get("entry") and isinstance(data["entry"], list):
+		incoming_phone_id = data["entry"][0]["changes"][0]["value"].get("metadata", {}).get("phone_number_id")
+	elif data.get("entry"):
+		incoming_phone_id = data["entry"]["changes"][0]["value"].get("metadata", {}).get("phone_number_id")
+	
+	# If no phone_id in metadata, try to get it from other locations
+	if not incoming_phone_id:
+		if data.get("entry") and isinstance(data["entry"], list) and data["entry"][0].get("changes", []):
+			value = data["entry"][0]["changes"][0].get("value", {})
+			if value.get("messages") and value["messages"]:
+				incoming_phone_id = value.get("phone_number_id")
+		
+	# Get this site's WhatsApp phone ID
+	site_phone_id = frappe.db.get_single_value(
+		"WhatsApp Settings", "phone_id"
+	)
+	
+	# If phone IDs don't match, log and return early with 200 OK
+	if incoming_phone_id and incoming_phone_id != site_phone_id:
+		return Response("OK", status=200)		
+	
 	messages = []
 	phone_id = None
 	try:
@@ -64,7 +88,7 @@ def post():
 	if messages:
 		for message in messages:
 			message_type = message['type']
-			is_reply = True if message.get('context') and 'forwarded' not in message.get('context') else False
+			is_reply = True if (message.get('context') and 'id' in message.get('context', {})) else False
 			reply_to_message_id = message['context']['id'] if is_reply else None
 			if message_type == 'text':
 				frappe.get_doc({
@@ -84,7 +108,7 @@ def post():
 					"doctype": "WhatsApp Message",
 					"type": "Incoming",
 					"from": message['from'],
-					"message": message['reaction']['emoji'],
+					"message": message['reaction'].get('emoji'),
 					"reply_to_message_id": message['reaction']['message_id'],
 					"message_id": message['id'],
 					"content_type": "reaction",
@@ -186,7 +210,7 @@ def post():
 		except KeyError:
 			changes = data["entry"]["changes"][0]
 		update_status(changes)
-	return
+	return Response("OK", status=200)
 
 def update_status(data):
 	"""Update status hook."""

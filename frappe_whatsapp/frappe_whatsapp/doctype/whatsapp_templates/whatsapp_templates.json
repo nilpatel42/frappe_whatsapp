@@ -1,6 +1,5 @@
 {
  "actions": [],
- "allow_rename": 1,
  "autoname": "format:{template_name}-{language_code}",
  "creation": "2022-10-28 13:39:09.887817",
  "doctype": "DocType",
@@ -21,7 +20,8 @@
   "category",
   "language",
   "language_code",
-  "whatsapp_account",
+  "section_break_mwnh",
+  "buttons",
   "section_break_lupb",
   "header_type",
   "header",
@@ -45,6 +45,7 @@
    "in_list_view": 1,
    "label": "Template",
    "options": "HTML",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -127,8 +128,7 @@
   {
    "fieldname": "actual_name",
    "fieldtype": "Data",
-   "label": "Template Name",
-   "read_only": 1
+   "label": "Template Name"
   },
   {
    "fieldname": "for_doctype",
@@ -151,26 +151,20 @@
    "label": "Field names"
   },
   {
+   "fieldname": "section_break_mwnh",
+   "fieldtype": "Section Break"
+  },
+  {
    "fieldname": "buttons",
    "fieldtype": "Table",
    "label": "Buttons",
-   "options": "WhatsApp Button"
-  },
-  {
-   "fieldname": "section_break_wu2vp",
-   "fieldtype": "Section Break"
- },
- {
-  "fieldname": "whatsapp_account",
-   "fieldtype": "Link",
-   "label": "WhatsApp Account",
-   "options": "WhatsApp Account"
+   "options": "WhatsApp Template Button"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-03 20:39:48.979892",
+ "modified": "2025-04-19 12:46:22.733999",
  "modified_by": "Administrator",
  "module": "Frappe Whatsapp",
  "name": "WhatsApp Templates",

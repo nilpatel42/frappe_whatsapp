@@ -6,9 +6,17 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "default_incoming_account",
-  "column_break_xsuw",
-  "default_outgoing_account"
+  "whatsapp_account_tab",
+  "enabled",
+  "token",
+  "url",
+  "version",
+  "phone_id",
+  "business_id",
+  "app_id",
+  "webhook_verify_token",
+  "whatsapp_notification_tab",
+  "cron_time"
  ],
  "fields": [
   {
@@ -24,15 +32,58 @@
    "options": "WhatsApp Account"
   },
   {
-   "fieldname": "column_break_skjo",
-   "fieldtype": "Column Break"
+   "fieldname": "version",
+   "fieldtype": "Data",
+   "label": "Version"
+  },
+  {
+   "fieldname": "phone_id",
+   "fieldtype": "Data",
+   "label": "Phone ID"
+  },
+  {
+   "fieldname": "business_id",
+   "fieldtype": "Data",
+   "label": "Business ID"
+  },
+  {
+   "fieldname": "webhook_verify_token",
+   "fieldtype": "Data",
+   "label": "Webhook Verify Token"
+  },
+  {
+   "default": "0",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "app_id",
+   "fieldtype": "Data",
+   "label": "App ID"
+  },
+  {
+   "fieldname": "whatsapp_account_tab",
+   "fieldtype": "Tab Break",
+   "label": "Whatsapp Account"
+  },
+  {
+   "depends_on": "eval:doc.token",
+   "fieldname": "whatsapp_notification_tab",
+   "fieldtype": "Tab Break",
+   "label": "Whatsapp Notification"
+  },
+  {
+   "fieldname": "cron_time",
+   "fieldtype": "Data",
+   "label": "Whatsapp Notification Time (Cron)"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-12-01 13:22:14.262545",
+ "modified": "2025-03-12 15:40:07.292171",
  "modified_by": "Administrator",
  "module": "Frappe Whatsapp",
  "name": "WhatsApp Settings",

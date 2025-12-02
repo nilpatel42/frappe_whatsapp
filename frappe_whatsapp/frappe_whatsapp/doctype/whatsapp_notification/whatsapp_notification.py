@@ -25,23 +25,35 @@ class WhatsAppNotification(Document):
                 filters={"dt": self.reference_doctype},
                 fields=["fieldname"]
             )
-            if not any(field.fieldname == self.field_name for field in fields): # noqa
-                frappe.throw(_("Field name {0} does not exists").format(self.field_name))
+            
+            # Check if field_name is a direct phone number or a field name
+            is_direct_phone_number = self._is_phone_number(self.field_name)
+            
+            if not is_direct_phone_number:
+                # Only validate field existence if it's not a direct phone number
+                if not any(field.fieldname == self.field_name for field in fields):
+                    frappe.throw(f"Field name {self.field_name} does not exist")
+            
         if self.custom_attachment:
             if not self.attach and not self.attach_from_field:
-                frappe.throw(_("Either {0} a file or add a {1} to send attachemt").format(
-                    frappe.bold(_("Attach")),
-                    frappe.bold(_("Attach from field")),
-                ))
+                frappe.throw("Either <b>Attach</b> a file or add a <b>Attach from field</b> to send attachment")
 
-        if self.set_property_after_alert:
-            meta = frappe.get_meta(self.reference_doctype)
-            if not meta.get_field(self.set_property_after_alert):
-                frappe.throw(_("Field {0} not found on DocType {1}").format(
-                    self.set_property_after_alert,
-                    self.reference_doctype,
-                ))
-
+    def _is_phone_number(self, value):
+        """Check if the value is a phone number."""
+        import re
+        
+        # Remove common phone number characters
+        cleaned_value = re.sub(r'[\s\-\(\)\+]', '', str(value))
+        
+        # Check if it's all digits and has reasonable length for a phone number
+        if cleaned_value.isdigit() and 7 <= len(cleaned_value) <= 15:
+            return True
+        
+        # Check for international format with + prefix
+        if value.startswith('+') and cleaned_value[1:].isdigit() and 7 <= len(cleaned_value) <= 15:
+            return True
+        
+        return False
 
     def send_scheduled_message(self) -> dict:
         """Specific to API endpoint Server Scripts."""
@@ -103,11 +115,14 @@ class WhatsAppNotification(Document):
         template = default_template or frappe.get_doc("WhatsApp Templates", self.template)
 
         if template:
-            if self.field_name:
-                phone_number = phone_no or doc_data[self.field_name]
+            # Handle phone number - check if field_name is a direct number or a field name
+            if self.field_name in doc_data:
+                # field_name is a field in the document
+                phone_number = doc_data[self.field_name]
             else:
-                phone_number = phone_no
-
+                # field_name is likely a direct phone number
+                phone_number = self.field_name
+            
             data = {
                 "messaging_product": "whatsapp",
                 "to": self.format_number(phone_number),
@@ -210,43 +225,40 @@ class WhatsAppNotification(Document):
                     }]
                 })
             self.content_type = template.header_type.lower()
-
-            if template.buttons:
-                button_fields = self.button_fields.split(",") if self.button_fields else []
-                for idx, btn in enumerate(template.buttons):
-                    if btn.button_type == "Visit Website" and btn.url_type == "Dynamic":
-                        if button_fields:
-                            data['template']['components'].append({
-                                "type": "button",
-                                "sub_type": "url",
-                                "index": str(idx),
-                                "parameters": [
-                                    {"type": "text", "text": doc.get(button_fields.pop(0))}
-                                ]
-                            })
-
+            data["whatsapp_notification"] = self.name
+            data["doc_name"] = doc.name
+            self.notify(data)
 
             self.notify(data, doc_data, template_account=template.whatsapp_account)
 
     def notify(self, data, doc_data=None, template_account=None):
         """Notify."""
-        # Use template's whatsapp account if available, otherwise use default outgoing account
-        if template_account:
-            whatsapp_account = frappe.get_doc("WhatsApp Account", template_account)
-        else:
-            whatsapp_account = get_whatsapp_account(account_type='outgoing')
-
-        if not whatsapp_account:
-            frappe.throw(_("Please set a default outgoing WhatsApp Account"))
-
-        token = whatsapp_account.get_password("token")
-
+        settings = frappe.get_doc("WhatsApp Settings", "WhatsApp Settings")
+        not_doc_name = data.get("whatsapp_notification")
+        doc = frappe.get_doc("WhatsApp Notification", not_doc_name)
+        reference_doctype = doc.reference_doctype
+        reference_document = data.get("doc_name")
+        
+        token = settings.get_password("token")
         headers = {
             "authorization": f"Bearer {token}",
             "content-type": "application/json"
         }
+        
         try:
             success = False
+            
+            # Get the template name and fetch from WhatsApp Templates doctype
+            template_name = self.template
+            template_content = self.get_template_content(template_name)
+            
+            # Get data from reference document for variable replacement
+            variables = self.get_variables_from_reference(reference_doctype, reference_document, doc, data)
+
+            # Replace variables in the template
+            message_text = self.replace_template_variables(template_content, variables)
+
+
             response = make_post_request(
                 f"{whatsapp_account.url}/{whatsapp_account.version}/{whatsapp_account.phone_id}/messages",
                 headers=headers, data=json.dumps(data)
@@ -263,36 +275,13 @@ class WhatsAppNotification(Document):
             new_doc = {
                 "doctype": "WhatsApp Message",
                 "type": "Outgoing",
-                "message": str(data['template']),
+                "message": message_text,
                 "to": data['to'],
                 "message_type": "Template",
                 "message_id": response['messages'][0]['id'],
                 "content_type": self.content_type,
-                "use_template": 1,
-                "template": self.template,
-                "template_parameters": parameters,
-                "whatsapp_account": whatsapp_account.name,
-            }
-
-            if doc_data:
-                new_doc.update({
-                    "reference_doctype": doc_data.doctype,
-                    "reference_name": doc_data.name,
-                })
-
-            frappe.get_doc(new_doc).save(ignore_permissions=True)
-
-            if doc_data and self.set_property_after_alert and self.property_value:
-                if doc_data.doctype and doc_data.name:
-                    fieldname = self.set_property_after_alert
-                    value = self.property_value
-                    meta = frappe.get_meta(doc_data.get("doctype"))
-                    df = meta.get_field(fieldname)
-                    if df:
-                        if df.fieldtype in frappe.model.numeric_fieldtypes:
-                            value = frappe.utils.cint(value)
-
-                        frappe.db.set_value(doc_data.get("doctype"), doc_data.get("name"), fieldname, value)
+                "reference_doctype": reference_doctype
+            }).save(ignore_permissions=True)
 
             frappe.msgprint("WhatsApp Message Triggered", indicator="green", alert=True)
             success = True
@@ -320,6 +309,99 @@ class WhatsAppNotification(Document):
                 "meta_data": meta
             }).insert(ignore_permissions=True)
 
+    def get_variables_from_reference(self, reference_doctype, reference_document, notification_doc, data_param=None):
+        """
+        Fetch data from reference document and its child tables for variable replacement.
+        """
+        variables = {}
+        
+        if not reference_document:
+            return variables
+        
+        try:
+            # Get the reference document
+            ref_doc = frappe.get_doc(reference_doctype, reference_document)
+            
+            # Get field mappings from notification doc
+            field_mappings = []
+            if notification_doc and hasattr(notification_doc, "get"):
+                field_mappings = notification_doc.get("fields", [])
+            
+            # Process each field mapping with index for numeric variables
+            for idx, field in enumerate(field_mappings, start=1):
+                field_name = field.get("field_name") if hasattr(field, "get") else None
+                variable_name = field.get("variable_name") if hasattr(field, "get") and field.get("variable_name") else str(idx)
+                
+                if not field_name:
+                    continue
+                    
+                # Extract value based on field name
+                if "." in field_name:
+                    # Handle child table fields
+                    parts = field_name.split(".")
+                    child_table, child_field = parts[0], parts[1]
+                    
+                    if hasattr(ref_doc, "get") and child_table and child_field:
+                        child_rows = ref_doc.get(child_table, [])
+                        if child_rows and child_rows[0]:
+                            child_row = child_rows[0]
+                            if hasattr(child_row, "get"):
+                                value = child_row.get(child_field)
+                                if value is not None:
+                                    variables[variable_name] = value
+                else:
+                    # Handle main document fields
+                    if hasattr(ref_doc, "get"):
+                        value = ref_doc.get(field_name)
+                        if value is not None:
+                            variables[variable_name] = value
+            
+            # Handle data specified directly in the components
+            if data_param and isinstance(data_param, dict):
+                # Extract values from template components if available
+                if "template" in data_param and "components" in data_param["template"]:
+                    components = data_param["template"].get("components", [])
+                    for component in components:
+                        if component.get("type") == "body" and "parameters" in component:
+                            parameters = component.get("parameters", [])
+                            for idx, param in enumerate(parameters, start=1):
+                                if param.get("type") == "text" and "text" in param:
+                                    variables[str(idx)] = param.get("text")
+                
+                # Also check traditional variables dict if present
+                additional_vars = data_param.get("variables", {})
+                if additional_vars and isinstance(additional_vars, dict):
+                    variables.update(additional_vars)
+        
+        except Exception:
+            pass
+        
+        return variables
+    
+    def get_template_content(self, template_name):
+        """Fetch the template content from WhatsApp Templates doctype."""
+        try:
+            template_doc = frappe.get_doc("WhatsApp Templates", template_name)
+            return template_doc.template
+        except Exception as e:
+            frappe.throw(f"Template '{template_name}' not found: {str(e)}")
+
+    def replace_template_variables(self, template_content, variables):
+        """Replace variables in the template with actual values."""
+        debug_info = {
+            "Template before": template_content,
+            "Variables": variables
+        }
+        
+        message = template_content
+        for key, value in variables.items():
+            placeholder = "{{" + key + "}}"
+            message = message.replace(placeholder, str(value))
+            debug_info[f"Replaced {placeholder}"] = value
+        
+        debug_info["Final message"] = message
+              
+        return message
 
     def on_trash(self):
         """On delete remove from schedule."""
@@ -364,12 +446,9 @@ class WhatsAppNotification(Document):
 def call_trigger_notifications():
     """Trigger notifications."""
     try:
-        # Directly call the trigger_notifications function
         trigger_notifications()  
     except Exception as e:
-        # Log the error but do not show any popup or alert
         frappe.log_error(frappe.get_traceback(), "Error in call_trigger_notifications")
-        # Optionally, you could raise the exception to be handled elsewhere if needed
         raise e
 
 def trigger_notifications(method="daily"):
