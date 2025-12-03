@@ -5,7 +5,6 @@ import frappe
 from frappe import _, throw
 from frappe.model.document import Document
 from frappe.integrations.utils import make_post_request
-from frappe.utils import get_url
 
 from frappe_whatsapp.utils import get_whatsapp_account, format_number
 
@@ -92,28 +91,6 @@ class WhatsAppMessage(Document):
                 frappe.throw(f"Failed to send message {str(e)}")
         elif self.type == "Outgoing" and self.message_type == "Template" and not self.message_id:
             self.send_template()
-            self.status = "Success"
-
-        """Find Profile Name."""
-        number = self.get("from") or self.get("to")
-
-        if not number or self.profile_name:
-            return
-
-        result = frappe.db.sql("""
-            SELECT profile_name
-            FROM `tabWhatsApp Message`
-            WHERE profile_name IS NOT NULL
-            AND name != %(current_docname)s
-            AND (%(number)s = `from` OR %(number)s = `to`)
-            ORDER BY creation DESC
-        """, {
-            "number": number,
-            "current_docname": self.name or ""
-        }, as_dict=True)
-
-        if result:
-            self.profile_name = result[0].profile_name
 
         self.create_whatsapp_profile()
 
@@ -146,15 +123,7 @@ class WhatsAppMessage(Document):
                 for field_name in field_names:
                     value = custom_values.get(field_name.strip())
                     parameters.append({"type": "text", "text": value})
-                    template_parameters.append(value)
-
-            elif self.custom_data == 1:
-                if self.fields:  # Directly check if self.fields exists and is truthy
-                    parameters = []
-                    for field in self.fields:
-                        parameters.append({"type": "text", "text": str(field.field_name)})
-                        template_parameters.append(field.field_name)
-                pass
+                    template_parameters.append(value)                    
 
             else:
                 ref_doc = frappe.get_doc(self.reference_doctype, self.reference_name)
@@ -163,7 +132,6 @@ class WhatsAppMessage(Document):
                     parameters.append({"type": "text", "text": value})
                     template_parameters.append(value)
 
-            
             self.template_parameters = json.dumps(template_parameters)
             data["template"]["components"].append(
                 {
@@ -172,58 +140,72 @@ class WhatsAppMessage(Document):
                 }
             )
 
-        # Handle header parameters
         if template.header_type:
-            if template.header_type in ["IMAGE", "DOCUMENT", "VIDEO"]:
-                if not self.attach:
-                    frappe.throw(f"This template requires a {template.header_type.lower()}, but 'Attach' field is empty.")
-                
-                file_url = get_url(self.attach)
-                header_type = template.header_type.lower()
-                
-                parameter = {
-                    "type": header_type,
-                    header_type: {
-                        "link": file_url
-                    }
-                }
-                
-                # Handle document filename
-                if header_type == "document":
-                    # Try to get filename from the attachment path
-                    import os
-                    filename = os.path.basename(self.attach)
-                    if filename:
-                        parameter["document"]["filename"] = filename
-                
-                data["template"]["components"].append({
-                    "type": "header",
-                    "parameters": [parameter]
-                })
-                
-            elif template.sample:  # For text-type headers
-                field_names = template.sample.split(",")
-                header_parameters = []
-                template_header_parameters = []
+            if self.attach:
+                if template.header_type == 'IMAGE':
 
-                ref_doc = frappe.get_doc(self.reference_doctype, self.reference_name)
-                for field_name in field_names:
-                    value = ref_doc.get_formatted(field_name.strip())
-                    
-                    header_parameters.append({"type": "text", "text": value})
-                    template_header_parameters.append(value)
+                    if self.attach.startswith("http"):
+                        url = f'{self.attach}'
+                    else:
+                        url = f'{frappe.utils.get_url()}{self.attach}'
+                    data['template']['components'].append({
+                        "type": "header",
+                        "parameters": [{
+                            "type": "image",
+                            "image": {
+                                "link": url
+                            }
+                        }]
+                    })
 
-                self.template_header_parameters = json.dumps(template_header_parameters)
+            elif template.sample:
+                if template.header_type == 'IMAGE':
+                    if template.sample.startswith("http"):
+                        url = f'{template.sample}'
+                    else:
+                        url = f'{frappe.utils.get_url()}{template.sample}'
+                    data['template']['components'].append({
+                        "type": "header",
+                        "parameters": [{
+                            "type": "image",
+                            "image": {
+                                "link": url
+                            }
+                        }]
+                    })
 
-                data["template"]["components"].append({
-                    "type": "header",
-                    "parameters": header_parameters,
-                })
+        if template.buttons:
+            button_parameters = []
+            for idx, btn in enumerate(template.buttons):
+                if btn.button_type == "Quick Reply":
+                    button_parameters.append({
+                        "type": "button",
+                        "sub_type": "quick_reply",
+                        "index": str(idx),
+                        "parameters": [{"type": "payload", "payload": btn.button_label}]
+                    })
+                elif btn.button_type == "Call Phone":
+                    button_parameters.append({
+                        "type": "button",
+                        "sub_type": "phone_number",
+                        "index": str(idx),
+                        "parameters": [{"type": "text", "text": btn.phone_number}]
+                    })
+                elif btn.button_type == "Visit Website":
+                    url = btn.website_url
+                    if btn.url_type == "Dynamic":
+                        ref_doc = frappe.get_doc(self.reference_doctype, self.reference_name)
+                        url = ref_doc.get_formatted(btn.website_url)
+                    button_parameters.append({
+                        "type": "button",
+                        "sub_type": "url",
+                        "index": str(idx),
+                        "parameters": [{"type": "text", "text": url}]
+                    })
 
-        if self.message_type == "Template" and template.sample_values:
-            # Store all parameters for later use in message replacement
-            self.all_parameters = template_parameters
-            
+            if button_parameters:
+                data['template']['components'].extend(button_parameters)
+
         self.notify(data)
 
     def notify(self, data):
@@ -232,8 +214,8 @@ class WhatsAppMessage(Document):
             "WhatsApp Account",
             self.whatsapp_account,
         )
-        token = settings.get_password("token")
-        
+        token = whatsapp_account.get_password("token")
+
         headers = {
             "authorization": f"Bearer {token}",
             "content-type": "application/json",
@@ -246,39 +228,6 @@ class WhatsAppMessage(Document):
             )
             self.message_id = response["messages"][0]["id"]
 
-            # Get the template content
-            if self.message_type == "Template":
-                template_name = self.template
-                template_doc = frappe.get_doc("WhatsApp Templates", template_name)
-                template_content = template_doc.template
-
-                # Initialize message text with the original template content
-                message_text = template_content            
-            
-                if template_doc.sample_values:
-                    # Parse the template parameters from JSON
-                    parameters = []
-                    if self.template_parameters:
-                        try:
-                            parameters = json.loads(self.template_parameters)
-                        except:
-                            pass
-                    
-                    # Replace variables in the format {{1}}, {{2}}, etc.
-                    for idx, param_value in enumerate(parameters, 1):
-                        placeholder = "{{" + str(idx) + "}}"
-                        message_text = message_text.replace(placeholder, str(param_value))
-            
-                # Save the final message text
-                self.message = message_text
-            
-                # If document already exists in the database, use db_set
-                if hasattr(self, 'is_new') and not self.is_new and self.name:
-                    frappe.db.set_value("WhatsApp Message", self.name, "message", message_text)
-                    frappe.db.commit()
-                else:
-                    None
-                    
         except Exception as e:
             res = frappe.flags.integration_request.json().get("error", {})
             error_message = res.get("Error", res.get("message"))
@@ -294,7 +243,6 @@ class WhatsAppMessage(Document):
 
     def format_number(self, number):
         """Format number."""
-        number = str(number)
         if number.startswith("+"):
             number = number[1 : len(number)]
 

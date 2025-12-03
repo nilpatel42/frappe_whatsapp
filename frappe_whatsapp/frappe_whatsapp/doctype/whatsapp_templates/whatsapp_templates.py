@@ -252,119 +252,112 @@ class WhatsAppTemplates(Document):
 @frappe.whitelist()
 def fetch():
     """Fetch templates from meta."""
-    """Later improve this code to pass a whatsapp account remove the js funcation so that it is called from whatsapp account doctype """
-    whatsapp_accounts = frappe.get_all('WhatsApp Account', filters={'status': 'Active'}, fields=['name', 'token', 'url', 'version', 'business_id'])
+    whatsapp_accounts = frappe.get_all(
+        'WhatsApp Account',
+        filters={'status': 'Active'},
+        fields=['name', 'token', 'url', 'version', 'business_id']
+    )
 
-    for account in whatsapp_accounts:
-        # get credentials
-        token = frappe.get_doc("WhatsApp Account", account.name).get_password("token")
-        url = account.url
-        version = account.version
-        business_id = account.business_id
+    try:
+        for account in whatsapp_accounts:
+            # get credentials
+            token = frappe.get_doc("WhatsApp Account", account.name).get_password("token")
+            url = account.url
+            version = account.version
+            business_id = account.business_id
 
-        headers = {"authorization": f"Bearer {token}", "content-type": "application/json"}
+            headers = {
+                "authorization": f"Bearer {token}",
+                "content-type": "application/json"
+            }
 
-        try:
             response = make_request(
                 "GET",
                 f"{url}/{version}/{business_id}/message_templates",
                 headers=headers,
             )
 
-        for template in response["data"]:
-            # set flag to insert or update
-            flags = 1
-            if frappe.db.exists("WhatsApp Templates", {"actual_name": template["name"]}):
-                doc = frappe.get_doc("WhatsApp Templates", {"actual_name": template["name"]})
-            else:
-                flags = 0
-                doc = frappe.new_doc("WhatsApp Templates")
-                doc.template_name = template["name"]
-                doc.actual_name = template["name"]
+            for template in response.get("data", []):
+                # set flag to insert or update
+                flags = 1
+                if frappe.db.exists("WhatsApp Templates", {"actual_name": template["name"]}):
+                    doc = frappe.get_doc("WhatsApp Templates", {"actual_name": template["name"]})
+                else:
+                    flags = 0
+                    doc = frappe.new_doc("WhatsApp Templates")
+                    doc.template_name = template["name"]
+                    doc.actual_name = template["name"]
 
-            doc.status = template["status"]
-            doc.language_code = template["language"]
-            doc.category = template["category"]
-            doc.id = template["id"]
+                doc.status = template["status"]
+                doc.language_code = template["language"]
+                doc.category = template["category"]
+                doc.id = template["id"]
 
-            # if document exists update else insert
-            # used db_update and db_insert to ignore hooks
-            if flags:
+                if flags:
+                    doc.db_update()
+                else:
+                    doc.db_insert()
+
+                frappe.db.commit()
+
+                # delete old buttons
+                frappe.db.sql("""
+                    DELETE FROM `tabWhatsApp Template Button`
+                    WHERE parent = %(parent)s AND parentfield = 'buttons'
+                """, {"parent": doc.name})
+
+                # update components
+                for component in template.get("components", []):
+
+                    if component["type"] == "HEADER":
+                        doc.header_type = component["format"]
+                        if component["format"] == "TEXT":
+                            doc.header = component["text"]
+
+                    elif component["type"] == "FOOTER":
+                        doc.footer = component["text"]
+
+                    elif component["type"] == "BODY":
+                        doc.template = component["text"]
+                        if component.get("example"):
+                            doc.sample_values = ",".join(
+                                component["example"]["body_text"][0]
+                            )
+
+                    elif component["type"] == "BUTTONS":
+                        for button_index, button in enumerate(component["buttons"], start=1):
+                            button_id = f"{doc.name}-button-{button_index}"
+
+                            frappe.db.sql("""
+                                INSERT INTO `tabWhatsApp Template Button`
+                                (name, parent, parentfield, parenttype, type, text, url, phone_number)
+                                VALUES (%(name)s, %(parent)s, 'buttons', 'WhatsApp Templates',
+                                        %(type)s, %(text)s, %(url)s, %(phone_number)s)
+                            """, {
+                                "name": button_id,
+                                "parent": doc.name,
+                                "type": button["type"].replace("_", " ").upper(),
+                                "text": button.get("text", ""),
+                                "url": button.get("url", ""),
+                                "phone_number": button.get("phone_number", "")
+                            })
+
                 doc.db_update()
-            else:
-                doc.db_insert()
-            frappe.db.commit()
-
-            # Now delete existing buttons and add new ones
-            frappe.db.sql(f"""
-                DELETE FROM `tabWhatsApp Template Button`
-                WHERE parent = %(parent)s AND parentfield = 'buttons'
-            """, {"parent": doc.name})
-
-            # update components
-            for component in template["components"]:
-
-                # update header
-                if component["type"] == "HEADER":
-                    doc.header_type = component["format"]
-
-                    # if format is text update sample text
-                    if component["format"] == "TEXT":
-                        doc.header = component["text"]
-                # Update footer text
-                elif component["type"] == "FOOTER":
-                    doc.footer = component["text"]
-
-                # update template text
-                elif component["type"] == "BODY":
-                    doc.template = component["text"]
-                    if component.get("example"):
-                        doc.sample_values = ",".join(
-                            component["example"]["body_text"][0]
-                        )
-                elif component["type"] == "BUTTONS":
-                    # Process buttons and add them to the child table
-                    frappe.log_error(f"Processing buttons for template: {template['name']}", "Debug")
-                    for button_index, button in enumerate(component["buttons"], start=1):
-                        button_id = f"{doc.name}-button-{button_index}"
-
-                        # Insert the button row into the child table using SQL
-                        frappe.db.sql("""
-                            INSERT INTO `tabWhatsApp Template Button` 
-                            (name, parent, parentfield, parenttype, type, text, url, phone_number)
-                            VALUES (%(name)s, %(parent)s, 'buttons', 'WhatsApp Templates', %(type)s, %(text)s, %(url)s, %(phone_number)s)
-                        """, {
-                            "name": button_id,
-                            "parent": doc.name,
-                            "type": button["type"].replace("_", " ").upper(),
-                            "text": button["text"],
-                            "url": button.get("url", ""),
-                            "phone_number": button.get("phone_number", "")
-                        })
-
-            # Update the document again after processing all components
-            doc.db_update()
-            frappe.db.commit()
+                frappe.db.commit()
 
     except Exception as e:
-        # Enhanced error handling
         error_message = str(e)
         error_title = "Error"
-        
-        # Check if it's an integration request error
+
         if hasattr(frappe.flags, 'integration_request') and frappe.flags.integration_request:
             try:
                 res = frappe.flags.integration_request.json()
                 if "error" in res:
                     error_message = res["error"].get("error_user_msg", res["error"].get("message", str(e)))
                     error_title = res["error"].get("error_user_title", "Error")
-            except (AttributeError, KeyError, TypeError):
-                # If we can't parse the integration request, use the original error
+            except Exception:
                 pass
-        
-        frappe.throw(
-            msg=error_message,
-            title=error_title,
-        )
+
+        frappe.throw(msg=error_message, title=error_title)
 
     return "Successfully fetched templates from meta"
